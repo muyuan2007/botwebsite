@@ -1,5 +1,5 @@
 import React from "react";
-import { Typography, TextField, CardActions,AppBar, Drawer,Button,ButtonGroup, Card, Cardedit, CardContent, CardMedia, Checkbox, CssBaseline, Grid, Toolbar, Container, Select } from '@material-ui/core'
+import { Typography, Tooltip, TextField, CardActions,AppBar, Drawer,Button,ButtonGroup, Card, Cardedit, CardContent, CardMedia, Checkbox, CssBaseline, Grid, Toolbar, Container, Select } from '@material-ui/core'
 import { Autocomplete } from '@material-ui/lab'
 import classes from './Modlog.module.css'
 import GavelIcon from '@material-ui/icons/Gavel';
@@ -7,18 +7,21 @@ import ListIcon from '@material-ui/icons/List';
 import SecurityIcon from '@material-ui/icons/Security';
 import SettingsIcon from '@material-ui/icons/Settings';
 import PolicyIcon from '@material-ui/icons/Policy';
+import { equals } from './Automod'
 const icons = {"General Settings": <SettingsIcon />, "Automod": <SecurityIcon />, "Logging":<ListIcon />, "Autopunish": <GavelIcon />, "Auto Kick/Ban":<PolicyIcon />}
 
 const logactions = {"Message Events":["Message Deleted", "Message Edited", "Message Bulk Deletion"], "Member Events":[
-    "Username Changed","Avatar Changed","Custom Status Changed", "Nickname Changed", "Roles Changed", "Member Joined", 
-    "Member Left"], "Moderation Events":["Member Warned", "Infraction Removed", "Member Muted", "Member Kicked", "Member Tempbanned", 
-    "Member Banned","Member Unbanned"], "Server Changes":["Emoji Added","Emoji Updated","Emoji Removed","Channel Created","Channel Updated","Channel Deleted"
-    , "Role Created","Role Updated","Role Deleted","Server Name Changed","Server Icon Changed","Discovery Splash Changed","Bot Added",
-    "Bot removed", "Invite Splash Changed","Sticker Added","Sticker Updated","Sticker Removed","Banner Changed","Explicit Filter Changed",
-    "Verification Level Changed","Invite Created","Invite Deleted","Vanity URL Changed","MFA Changed","Server Owner Changed"], "Voice State Change":["Member Joined VC",
+    "Username Changed","Avatar Changed", "Nickname Changed", "Roles Changed", "Member Joined", 
+    "Member Left"], "Moderation Events":["Member Warned", "Infraction Removed", "Member Muted","Member Unmuted", "Member Kicked", "Member Tempbanned", 
+    "Member Banned","Member Unbanned"], "Server Changes":["Emoji Added","Emoji Updated","Emoji Deleted","Channel Created","Channel Updated","Channel Deleted"
+    , "Role Created","Role Updated","Role Deleted","Server Name Changed","Server Icon Changed","Discovery Splash Changed","AFK Channel Changed","System Channel Changed","Default Notifications Changed","AFK Timeout Changed","Bot Added",
+    "Bot Removed", "Invite Splash Changed","Banner Changed","Explicit Filter Changed",
+    "Verification Level Changed","Invite Created","Invite Deleted","MFA Changed","Server Owner Changed"], "Voice Channel Events":["Member Joined VC",
     "Member Left VC","Member Moved"]}
 
 const drawerWidth = 250;
+const delToopTipDesc = "Enable \"Message Bulk Deletion\" for instances of multiple messages being deleted at once (e.g., when AMGX detects spam)."
+
 
 class CheckButton extends React.Component {
 
@@ -42,9 +45,7 @@ class CheckButton extends React.Component {
    
 
     render() {
-        return <Button style={{backgroundColor:"lightgray", width: "100%", position: "relative", display: "flex", flexDirection: "column", padding: "10px 0"}} onClick={this.toggleCheck}><input onChange={this.haha} checked={this.props.checked} type="checkbox" onClick={this.toggleCheck} style={{width: 18, height: 18}} ref={this.checkBoxRef}/><span variant="h6" for={this.props.eventtype} style={{textTransform: "initial",fontSize: 18, position: "relative",left: 10,['@media (max-width:500px)']:{
-            fontSize: 15
-        },}}>{this.props.eventtype}</span></Button>
+        return <Button style={{backgroundColor:"lightgray", width: "100%", position: "relative", display: "flex", flexDirection: "column", padding: "10px 0"}} onClick={this.toggleCheck}><input onChange={this.haha} checked={this.props.checked} type="checkbox" onClick={this.toggleCheck} style={{width: 18, height: 18}} ref={this.checkBoxRef}/><span variant="h6" htmlFor={this.props.eventtype} style={{textTransform: "initial",fontSize: 18, position: "relative",left: 10, width: 'calc(100% - 60px)'}}>{this.props.eventtype}</span></Button>
     }
 }
 
@@ -63,6 +64,7 @@ class MessageActions extends React.Component {
         this.saveData = this.saveData.bind(this)
         this.changeChannel = this.changeChannel.bind(this)
     }
+
     saveData() {
         fetch('/api/send-modlog', {
             method: 'POST',
@@ -71,27 +73,24 @@ class MessageActions extends React.Component {
                 'Content-Type': 'application/json'
             }
         })
-
     }
     changeChannel = (event, values) => {
         this.setState({channel: values})
     }
+
     addAndRemoveElement(str) {
         if (!this.state.actions.includes(str)) {
-            let actions = this.state.actions
+            let actions = [...this.state.actions]
             actions.push(str)
-            this.setState({actions: actions}, () => {
-            })
+            this.setState({actions:  actions})
         } else {
-            let actions = this.state.actions
+            let actions = [...this.state.actions]
             const index = actions.indexOf(str)
             actions.splice(index,1)
-            this.setState({actions: actions}, () => {
-            })
-
+            this.setState({actions:  actions})
         }
     }
-    
+
 
     render() {
         return <Grid maxWidth="xl" item  xs={12}>
@@ -107,7 +106,12 @@ class MessageActions extends React.Component {
             </CardContent>
             <Container maxWidth="xl">
                 <Grid style={{position: "relative", top: 25, width: "calc(100% - 20px)",left:15}} container spacing={2}>
-                {logactions["Message Events"].map((eventType) => (
+                <Grid item key={"Message Deleted"} xs={12} sm={6} md={4} lg={4} xl={4}>
+                <Tooltip title={<span style={{ fontSize: 13, height: 18 }}>{delToopTipDesc}</span>} enterTouchDelay={0} PopperProps={{style: {marginLeft:0}}}>
+                    <div onClick={()=>this.addAndRemoveElement("Message Deleted")}><CheckButton checked={this.state.actions.includes("Message Deleted")} eventtype={"Message Deleted"} id={"Message Deleted"} className={classes.button}></CheckButton></div>
+                    </Tooltip>
+                    </Grid>
+                {logactions["Message Events"].slice(1).map((eventType) => (
                     <Grid item key={eventType} xs={12} sm={6} md={4} lg={4} xl={4}>
                     <div onClick={()=>this.addAndRemoveElement(eventType)}><CheckButton checked={this.state.actions.includes(eventType)} eventtype={eventType} id={eventType} className={classes.button}></CheckButton></div>
                     </Grid>
@@ -131,7 +135,7 @@ class MemberActions extends React.Component {
     constructor(props) {
         super(props)
 
-        this.state = {actions:this.props.actions, channel: this.props.channel}
+        this.state = {actions:this.props.actions, channel: this.props.channel, currentStuff: {}}
         this.addAndRemoveElement = this.addAndRemoveElement.bind(this)
         this.saveData = this.saveData.bind(this)
         this.changeChannel = this.changeChannel.bind(this)
@@ -144,27 +148,23 @@ class MemberActions extends React.Component {
                 'Content-Type': 'application/json'
             }
         })
-
     }
     changeChannel = (event, values) => {
         this.setState({channel: values})
     }
     addAndRemoveElement(str) {
         if (!this.state.actions.includes(str)) {
-            let actions = this.state.actions
+            let actions = [...this.state.actions]
             actions.push(str)
-            this.setState({actions: actions}, () => {
-            })
+            this.setState({actions:  actions})
         } else {
-            let actions = this.state.actions
+            let actions = [...this.state.actions]
             const index = actions.indexOf(str)
             actions.splice(index,1)
-            this.setState({actions: actions}, () => {
-            })
-
+            this.setState({actions:  actions})
         }
+        
     }
-
     render() {
         return <Grid maxWidth="xl" item  xs={12}>
         <Card className={classes.card}>
@@ -202,7 +202,6 @@ class MemberActions extends React.Component {
 class Moderations extends React.Component {
     constructor(props) {
         super(props)
-
         this.state = {actions:this.props.actions, channel: this.props.channel}
         this.addAndRemoveElement = this.addAndRemoveElement.bind(this)
         this.saveData = this.saveData.bind(this)
@@ -216,27 +215,24 @@ class Moderations extends React.Component {
                 'Content-Type': 'application/json'
             }
         })
-
     }
     changeChannel = (event, values) => {
         this.setState({channel: values})
     }
     addAndRemoveElement(str) {
         if (!this.state.actions.includes(str)) {
-            let actions = this.state.actions
+            let actions = [...this.state.actions]
             actions.push(str)
-            this.setState({actions: actions}, () => {
-            })
+            this.setState({actions:  actions})
         } else {
-            let actions = this.state.actions
+            let actions = [...this.state.actions]
             const index = actions.indexOf(str)
             actions.splice(index,1)
-            this.setState({actions: actions}, () => {
-            })
-
+            this.setState({actions:  actions})
         }
+        
     }
-
+    
     render() {
         return <Grid maxWidth="xl" item  xs={12}>
         <Card className={classes.card}>
@@ -288,27 +284,25 @@ class ServerActions extends React.Component {
                 'Content-Type': 'application/json'
             }
         })
-
     }
+
     changeChannel = (event, values) => {
         this.setState({channel: values})
     }
     addAndRemoveElement(str) {
         if (!this.state.actions.includes(str)) {
-            let actions = this.state.actions
+            let actions = [...this.state.actions]
             actions.push(str)
-            this.setState({actions: actions}, () => {
-            })
+            this.setState({actions:  actions})
         } else {
-            let actions = this.state.actions
+            let actions = [...this.state.actions]
             const index = actions.indexOf(str)
             actions.splice(index,1)
-            this.setState({actions: actions}, () => {
-            })
-
+            this.setState({actions:  actions})
         }
+        
     }
-
+    
     render() {
         return <Grid maxWidth="xl" item  xs={12}>
         <Card className={classes.card}>
@@ -344,6 +338,7 @@ class ServerActions extends React.Component {
 }
 
 class VCActions extends React.Component {
+    
     constructor(props) {
         super(props)
 
@@ -360,27 +355,26 @@ class VCActions extends React.Component {
                 'Content-Type': 'application/json'
             }
         })
-
+    }
+    componentDidMount() {
     }
     changeChannel = (event, values) => {
         this.setState({channel: values})
     }
     addAndRemoveElement(str) {
         if (!this.state.actions.includes(str)) {
-            let actions = this.state.actions
+            let actions = [...this.state.actions]
             actions.push(str)
-            this.setState({actions: actions}, () => {
-            })
+            this.setState({actions:  actions})
         } else {
-            let actions = this.state.actions
+            let actions = [...this.state.actions]
             const index = actions.indexOf(str)
             actions.splice(index,1)
-            this.setState({actions: actions}, () => {
-            })
-
+            this.setState({actions:  actions})
         }
+        
     }
-
+    
     render() {
         return <Grid maxWidth="xl" item  xs={12}>
         <Card className={classes.card}>
@@ -395,7 +389,7 @@ class VCActions extends React.Component {
             </CardContent>
             <Container maxWidth="xl">
                 <Grid style={{position: "relative", top: 25, width: "calc(100% - 20px)",left:15}} container spacing={2}>
-                {logactions["Voice State Change"].map((eventType) => (
+                {logactions["Voice Channel Events"].map((eventType) => (
                     <Grid item key={eventType} xs={12} sm={6} md={4} lg={4} xl={4}>
                     <div onClick={()=>this.addAndRemoveElement(eventType)}><CheckButton checked={this.state.actions.includes(eventType)} eventtype={eventType} id={eventType} className={classes.button}></CheckButton></div>
                     </Grid>
@@ -424,3 +418,8 @@ export {
     VCActions,
     icons
 }
+
+
+
+
+

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Typography,IconButton,Box,Divider, MenuItem,Tabs, Tab,TextField,AppBar,Switch, Drawer,Button,ButtonGroup, Card, CardActions, CardContent, CardMedia, Checkbox, CssBaseline, Grid, Toolbar, Container, Select } from '@material-ui/core'
+import { Typography, IconButton, Box, Divider, MenuItem, Tabs, Tab, TextField, AppBar, Switch, Drawer, Button, ButtonGroup, Card, CardActions, CardContent, CardMedia, Checkbox, CssBaseline, Grid, Toolbar, Container, Select, Tooltip } from '@material-ui/core'
 import { Autocomplete } from '@material-ui/lab';
 import AddIcon from '@material-ui/icons/Add';
 import classes from './Automod.module.css'
@@ -9,63 +9,101 @@ import ListIcon from '@material-ui/icons/List';
 import SecurityIcon from '@material-ui/icons/Security';
 import SettingsIcon from '@material-ui/icons/Settings';
 import PolicyIcon from '@material-ui/icons/Policy';
+import PublishIcon from '@material-ui/icons/Publish'
+import FormatListNumbered from '@material-ui/icons/FormatListNumbered'
+import ResizeSensor from 'css-element-queries/src/ResizeSensor'
+const newC = 'There are no categories, click "CREATE NEW CATEGORY" to add one!'
+const equals = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const icons = { "General Settings": <SettingsIcon />, "Automod": <SecurityIcon />, "Logging": <ListIcon />, "Autopunish": <GavelIcon />, "Auto Kick/Ban": <PolicyIcon />, "Weblogs": <FormatListNumbered /> }
+const substringExplain = "When this is turned on, for every word in the category, AMGX will also check if that word is present as part of other words."
 
-
-
-const icons = {"General Settings": <SettingsIcon />, "Automod": <SecurityIcon />, "Logging":<ListIcon />, "Autopunish": <GavelIcon />, "Auto Kick/Ban":<PolicyIcon />}
+function punishmentSort(punishments) {
+  const punish_obj = {'Delete message':1,'Mute':2,'Warn':3,'Kick':4,'Tempban':5,'Ban':6}
+  const p = punishments.sort(
+    (pu1, pu2) => punish_obj[pu1] - punish_obj[pu2],
+  )
+  
+  return p
+  
+}
 
 const Gap = () => {
-    return(
-        <>
-        <CssBaseline/>
-        <footer className={classes.footerInBetween}></footer>
-        <Divider className={classes.divider1}></Divider>
-        <footer className={classes.footerInBetween}></footer>
-        </>
-
-    )
+  return (
+    <>
+      <CssBaseline />
+      <footer className={classes.footerInBetween}></footer>
+      <Divider className={classes.divider1}></Divider>
+      <footer className={classes.footerInBetween}></footer>
+    </>
+  )
 }
 
 class General extends React.Component {
+
   constructor(props) {
     super(props);
-    this.state = {whitelistedRoles:this.props.role_whitelists, whitelistedChannels:this.props.channel_whitelists, muteRole:this.props.muterole}
+    this.state = { whitelistedRoles: this.props.role_whitelists, whitelistedChannels: this.props.channel_whitelists, ignoredWords: this.props.ignored_words, capsThreshold: this.props.caps_threshold }
 
     this.onRoleChange = this.onRoleChange.bind(this);
     this.onChannelChange = this.onChannelChange.bind(this);
-    this.onMuteChange = this.onMuteChange.bind(this);
+    this.onIgnoredWordChange = this.onIgnoredWordChange.bind(this);
+    this.onCapsThresholdChange = this.onCapsThresholdChange.bind(this);
     this.saveData = this.saveData.bind(this)
   }
 
+
   onRoleChange = (event, values) => {
     const roleobj = this.props.roleobj
-          let roles = {}
-          values.forEach(value => {roles[value] = roleobj[value]})
-            this.setState({
-              whitelistedRoles: roles
-            })
+    let roles = {}
+    values.forEach(value => { roles[value] = roleobj[value] })
+    this.setState({
+      whitelistedRoles: roles
+    })
   }
-  
+
+  onIgnoredWordChange = (event, values) => {
+    this.setState({
+      ignoredWords: values
+    })
+  }
+
   onChannelChange = (event, values) => {
     const channelobj = this.props.channelobj
-          let channels = {}
-          values.forEach(value => {channels[value] = channelobj[value]})
-            this.setState({
-              whitelistedChannels: channels
-            })
+    let channels = {}
+    values.forEach(value => { channels[value] = channelobj[value] })
+    this.setState({
+      whitelistedChannels: channels
+    })
   }
 
-  onMuteChange = (event, values) => {
-    let muteRole = {}
-    muteRole[values] = this.props.roleobj[values]
-    this.setState({muteRole: muteRole})
+  onCapsThresholdChange = (event) => {
+    if (event.target.value.length == 0 || parseInt(event.target.value) < 1) {
+      event.target.value = 1
+    }
+    this.setState({capsThreshold: parseInt(event.target.value)})
   }
 
+  openFileImport = () => {
+    document.getElementById("ignoredWordInput").click()
+  }
+
+  onFileInput = (event) => {
+    const file = event.target.files[0]
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.setState({
+        ignoredWords: this.state.ignoredWords.concat(reader.result.split("\n").filter(n => n.length > 0))
+      })
+    };
+    reader.readAsText(file)
+    event.target.value = '';
+  }
 
   saveData() {
-    fetch('/api/send-automod', {
+    fetch('/api/send-msgautomod', {
       method: 'POST',
-      body: JSON.stringify({guild: this.props.server, type: 'general', whitelistedRoles: this.state.whitelistedRoles, whitelistedChannels: this.state.whitelistedChannels, muteRole: this.state.muteRole}),
+      body: JSON.stringify({ guild: this.props.server, table: 'automodgeneral', type: 'general', whitelistedRoles: this.state.whitelistedRoles, whitelistedChannels: this.state.whitelistedChannels, ignoredWords: this.state.ignoredWords, capsThreshold: this.state.capsThreshold}),
       headers: {
         'Content-Type': 'application/json'
       }
@@ -74,450 +112,120 @@ class General extends React.Component {
 
   render() {
     return <Grid item xs={12} md={6}>
-    <Card style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-    <CardContent className={classes.cardContent}>
-    <Typography style={{position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)"}}>General Settings</Typography>
-    <footer style={{padding: "5px 0"}}></footer>
-    <Grid xs={12} style={{width: "calc(100% - 20px)", position: "relative", left: 10}}>
-    <Typography style={{fontSize: 16, width: "100%", display: "block"}}>Whitelisted roles</Typography>
-    <Autocomplete multiple options={this.props.roles} value={Object.keys(this.state.whitelistedRoles)} onChange={this.onRoleChange}
- renderInput={(params) => <TextField {...params}/>}></Autocomplete>
-    <footer className={classes.footerInBetween}></footer>
-    <Typography style={{fontSize: 16, width: "100%", display: "block"}}>Whitelisted channels</Typography>
-    <Autocomplete multiple options={this.props.channels} value={Object.keys(this.state.whitelistedChannels)} onChange={this.onChannelChange} renderInput={(params) => <TextField {...params}/>}></Autocomplete>
-    <footer className={classes.footerInBetween}></footer>
-    <Typography style={{fontSize: 16, width: "100%", display: "block"}}>Mute role</Typography>
-    <Autocomplete  options={this.props.roles} value={Object.keys(this.state.muteRole)[0]} onChange={this.onMuteChange} renderInput={(params) => <TextField {...params}/>}></Autocomplete>
-    </Grid>
-    </CardContent>
-    <footer style={{padding: "20px 0"}}>
-        <Button style={{backgroundColor:"cornflowerblue", padding: "5px", position: "relative", left: 40, top:-9}} onClick={this.saveData}><Typography style={{fontSize: 18, textTransform: "initial", color: "white"}}>Save</Typography></Button>
-    </footer>
+      <Card style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <CardContent className={classes.cardContent}>
+          <Typography style={{ position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)" }}>General Settings</Typography>
+          <footer style={{ padding: "5px 0" }}></footer>
+          <Grid xs={12} style={{ width: "calc(100% - 20px)", position: "relative", left: 10 }}>
+            <Typography style={{ fontSize: 16, width: "100%", display: "block" }}>Whitelisted channels</Typography>
+            <Autocomplete defaultValue={Object.keys(this.props.channelobj).filter(f => Object.values(this.props.channel_whitelists).includes(this.props.channelobj[f]))} multiple options={Object.keys(this.props.channelobj)} onChange={this.onChannelChange} renderInput={(params) => <TextField {...params} />}></Autocomplete>
+            <footer className={classes.footerInBetween}></footer>
+            <Typography style={{ fontSize: 16, width: "100%", display: "block" }}>Whitelisted roles</Typography>
+            <Autocomplete multiple options={this.props.roles} defaultValue={Object.keys(this.props.roleobj).filter(f => Object.values(this.props.role_whitelists).includes(this.props.roleobj[f]))} onChange={this.onRoleChange}
+              renderInput={(params) => <TextField {...params} />}></Autocomplete>
+            <footer className={classes.footerInBetween}></footer>
+            <Typography style={{ fontSize: 16, width: "100%", display: "block" }}>Ignored words</Typography>
+            <div>
+            <Autocomplete style={{ width: "70%", display: "inline-block" }} value={this.state.ignoredWords} multiple freeSolo defaultValue={this.props.ignored_words} onChange={this.onIgnoredWordChange}
+              renderInput={(params) => <TextField placeholder="Press enter to add a word" {...params} />} options={[]}></Autocomplete>
+            <div style={{ display: "inline-block", width: "30%" }} >
+              <Tooltip title={<span style={{ fontSize: 13, height: 18 }}>{"Only accepts txt files. Words should be separated using newlines. Imported words are added to the existing list."}</span>} enterTouchDelay={0} placement="left" PopperProps={{ style: { marginLeft: 0 } }}>
+                <div>
+                  <input id="ignoredWordInput" type="file" style={{ display: "none" }} accept=".txt" onInput={this.onFileInput} />
+                  <Button className="wordImportButton" onClick={this.openFileImport} style={{ paddingLeft: 10, paddingRight: 10, height: 36, fontSize: 15, textTransform: "initial", backgroundColor: 'white', color: "black", position: "relative", left: 25 }}>
+                    <PublishIcon />
 
-  </Card>
-  </Grid>
+                    <Typography style={{ paddingLeft: 5 }}>Import words</Typography>
+                  </Button>
+                </div>
+              </Tooltip>
+            </div>
+            </div>
+              <footer className={classes.footerInBetween}></footer>
+              <Tooltip title={<span style={{ fontSize: 13, height: 18 }}>Minimum number of letters in a message in order for AMGX to check for capital letter overuse</span>} enterTouchDelay={0} placement="top">
+              <div style={{width: "50%"}}>
+                <Typography style={{ fontSize: 16, width: "100%" }}>Caps detection length threshold</Typography>
+                <TextField type="Number" onInput={this.onCapsThresholdChange} style={{ width: '80%' }} defaultValue={this.props.caps_threshold} /><span style={{ fontSize: 16, position: 'relative', left: 15 }}>letters</span>
+              </div>
+            </Tooltip>
+            <footer className={classes.footerInBetween}></footer>
+          </Grid>
+        </CardContent>
+        <footer style={{ padding: "20px 0" }}>
+          <Button style={{ backgroundColor: "cornflowerblue", padding: "5px", position: "relative", left: 40, top: -9 }} onClick={this.saveData}><Typography style={{ fontSize: 18, textTransform: "initial", color: "white" }}>Save</Typography></Button>
+        </footer>
+
+      </Card>
+    </Grid>
   }
 }
 
 class SpamAutomodSet extends React.Component {
-    constructor(props) {
-        super(props);
-        this.onPunishTagsChange = this.onPunishTagsChange.bind(this);
-        this.onChannelWhitelistChange = this.onChannelWhitelistChange.bind(this);
-        this.onRoleWhitelistChange = this.onRoleWhitelistChange.bind(this);
-        this.state = {availableOptions:["Delete message", "Mute", "Warn", "Kick", "Tempban", "Ban"],punishments:this.props.punishments,amountLimit:this.props.maxes[0], timeLimit:this.props.maxes[1], whitelistedChannels:this.props.channel_whitelists,whitelistedRoles:this.props.role_whitelists, points: this.props.points, timeValue: this.props.timeval, actualTime: this.props.timeunit};
-        this.time = React.createRef();
-        this.amountLimit = React.createRef();
-        this.timeLimit = React.createRef();
-        this.timeAmount = React.createRef();
-        this.pointRef = React.createRef();
-        this.points = React.createRef();
-        this.durationRef = React.createRef();
-        this.saveData = this.saveData.bind(this)
-        this.amountChange = this.amountChange.bind(this)
-        this.onPointChange = this.onPointChange.bind(this)
-        this.timeChange = this.timeChange.bind(this)
-        this.timeAmountChange = this.timeAmountChange.bind(this)
-        this.timeUnitChange = this.timeUnitChange.bind(this)
+  constructor(props) {
+    super(props);
+    this.onPunishTagsChange = this.onPunishTagsChange.bind(this);
+    this.onChannelWhitelistChange = this.onChannelWhitelistChange.bind(this);
+    this.onRoleWhitelistChange = this.onRoleWhitelistChange.bind(this);
+    this.state = { availableOptions: ["Delete message", "Mute", "Warn", "Kick", "Tempban", "Ban"], punishments: this.props.punishments, amountLimit: this.props.maxes[0], timeLimit: this.props.maxes[1], whitelistedChannels: this.props.channel_whitelists, whitelistedRoles: this.props.role_whitelists, points: this.props.points, timeValue: this.props.timeval, actualTime: this.props.timeunit, currentStuff: {} };
+    this.time = React.createRef();
+    this.amountLimit = React.createRef();
+    this.timeLimit = React.createRef();
+    this.timeAmount = React.createRef();
+    this.pointRef = React.createRef();
+    this.points = React.createRef();
+    this.durationRef = React.createRef();
+    this.saveData = this.saveData.bind(this)
+    this.amountChange = this.amountChange.bind(this)
+    this.onPointChange = this.onPointChange.bind(this)
+    this.timeChange = this.timeChange.bind(this)
+    this.timeAmountChange = this.timeAmountChange.bind(this)
+    this.timeUnitChange = this.timeUnitChange.bind(this)
+    this.changePunishSize = this.changePunishSize.bind(this)
+  }
 
-        }
-        
+  onPunishTagsChange = (event, values, reason, detail) => {
+    this.changePunishSize()
+    const durationNode = this.durationRef.current;
+    const pointNode = this.pointRef.current;
 
-        onPunishTagsChange = (event, values, reason, detail) => {
-          (reason)
-          const durationNode = this.durationRef.current;
-          const pointNode = this.pointRef.current;
-      
-          var available = this.state.availableOptions;
-      
-          this.setState({
-              punishments: values 
-          }, () => {
-              const chosenOptions = Array.from(this.state.punishments)
-              if (chosenOptions.includes("Mute") || chosenOptions.includes("Tempban")) {
-                  durationNode.style.display = "block"
-              } else {
-                  durationNode.style.display = "none"
-      
-              }
-      
-              if (chosenOptions.includes("Warn")) {
-                  pointNode.style.display = "block"
-                  
-      
-              } else {
-                  pointNode.style.display = "none"
-      
-              }
-          });
-      
-      
-      
-          var chosenOptions = Array.from(values)
-          if (chosenOptions.includes("Mute")) {
-            function ok(value) {
-              return value != "Kick" && value != "Ban" && value != "Tempban"
-            }
-            var temp = available.filter(ok)
-            available = temp
-          } else{
-            if(reason === 'remove-option' && detail.option == "Mute") {
-            if (!available.includes("Kick")) {
-              available.push("Kick")
-            }
-            
-            if (!available.includes("Tempban")) {
-              available.push("Tempban")
-            }
-            if (!available.includes("Ban")) {
-              available.push("Ban")
-            }
-          }
-        }
-      
-          if (chosenOptions.includes("Warn")) {
-            function ok(value) {
-              return value != "Kick" && value != "Ban" && value != "Tempban"
-            }
-            var temp = available.filter(ok)
-            available = temp
-          } else {
-            if(reason === 'remove-option' && detail.option == "Warn") {
-            if (!available.includes("Kick")) {
-              available.push("Kick")
-            }
-            
-            if (!available.includes("Tempban")) {
-              available.push("Tempban")
-            }
-            if (!available.includes("Ban")) {
-              available.push("Ban")
-            }
-          }
-        }
-      
-          if (chosenOptions.includes("Kick")) {
-            function ok(value) {
-              return value != "Mute" && value != "Ban" && value != "Tempban"
-            }
-            var temp = available.filter(ok)
-            available = temp
-          } else {
-            if(reason === 'remove-option' && detail.option == "Kick") {
-            if (!available.includes("Mute")) {
-              available.push("Mute")
-            }
-            
-            if (!available.includes("Tempban")) {
-              available.push("Tempban")
-            }
-            if (!available.includes("Ban")) {
-              available.push("Ban")
-            }    
-          }
-        }
-      
-          if (chosenOptions.includes("Tempban")) {
-            function ok(value) {
-              return value != "Kick" && value != "Ban" && value != "Mute"
-            }
-            const temp = available.filter(ok)
-            available = temp
-          } else {
-            if(reason === 'remove-option' && detail.option == "Tempban") {
-            if (!available.includes("Kick")) {
-              available.push("Kick")
-            }
-            
-            if (!available.includes("Mute")) {
-              available.push("Mute")
-            }
-            if (!available.includes("Ban")) {
-              available.push("Ban")
-            }
-          }
-        }
-      
-          if (chosenOptions.includes("Ban")) {
-            function ok(value) {
-              return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
-            }
-            var temp = available.filter(ok)
-            available = temp
-          } else {
-            if(reason === 'remove-option' && detail.option == "Ban") {
-            if (!available.includes("Kick")) {
-              available.push("Kick")
-            }
-            
-            if (!available.includes("Mute")) {
-              available.push("Mute")
-            }
-            if (!available.includes("Ban")) {
-              available.push("Ban")
-            }
-            if (!available.includes("Tempban")) {
-              available.push("Tempban")
-            }
-            if (!available.includes("Warn")) {
-              available.push("Warn")
-            }
-          }
-        }
+    var available = this.state.availableOptions;
 
-        if (reason === 'clear') {
-          available = ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban','Ban']
-        }
+    this.setState({
+      punishments: values
+    }, () => {
+      const chosenOptions = Array.from(this.state.punishments)
+      if (chosenOptions.includes("Mute") || chosenOptions.includes("Tempban")) {
+        durationNode.style.display = "block"
+      } else {
+        durationNode.style.display = "none"
 
-      
-          this.setState({
-            availableOptions: available
-          })
-      
-      
-        }
-        onChannelWhitelistChange = (event, values) => {
-          const channelobj = this.props.channelobj
-          let channels = {}
-          values.forEach(value => {channels[value] = channelobj[value]})
-            this.setState({
-              whitelistedChannels: channels
-            })
-        }
-      
-        onRoleWhitelistChange = (event, values) => {
-          const roleobj = this.props.roleobj
-          let roles = {}
-          values.forEach(value => {roles[value] = roleobj[value]})
-            this.setState({
-              whitelistedRoles: roles
-            })
-        }
-
-        saveData(){
-        const timeval = this.time.current.value
-        var logData = {}
-        logData = {type: 'spam',table: this.props.table, guild: this.props.server, punishments: this.state.punishments, whitelistedChannels: this.state.whitelistedChannels, whitelistedRoles: this.state.whitelistedRoles, limit:[this.state.amountLimit, this.state.timeLimit], timeValue: this.state.timeValue, actualTime: this.state.actualTime, punishTime: 0, warnPoints: 0}
-        if (this.state.punishments.includes("Mute") || this.state.punishments.includes("Tempban")) {
-          if (timeval == "seconds") {
-            logData.punishTime = this.state.timeValue
-          } 
-          if (timeval == "minutes") {
-            logData.punishTime = 60*this.state.timeValue
-          } 
-          if (timeval == "hours") {
-            logData.punishTime = 3600*this.state.timeValue
-          } 
-          if (timeval == "days") {
-            logData.punishTime = 86400*this.state.timeValue
-          } 
-        }
-        
-        if (this.state.punishments.includes("Warn")){
-          logData.warnPoints = this.state.points
-        }
-
-
-        fetch('/api/send-automod', {
-          method: 'POST',
-          body: JSON.stringify(logData),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-
-
-        
-
-        
-        }
-
-        amountChange() {
-          const value = this.amountLimit.current.value;
-          this.setState({amountLimit: parseInt(value)})
-        }
-
-        onPointChange() {
-          const value = parseInt(this.points.current.value)
-          this.setState({points: value})
-        }
-
-        timeChange() {
-          const value = this.timeLimit.current.value;
-          this.setState({timeLimit: parseInt(value)})
-        }
-
-         timeAmountChange() {
-          const value = this.timeAmount.current.value
-          this.setState({timeValue: parseInt(value)})
-        }
-
-        timeUnitChange(e) {
-          this.setState({actualTime: e.target.value})
-        }
-
-        componentDidMount() {
-          const punishments = this.state.punishments
-          if (punishments.includes('Mute')) {
-            this.setState({availableOptions: ['Delete message', 'Mute', 'Warn']})
-            this.durationRef.current.style.display = 'block'
-          }
-          if (punishments.includes('Warn')) {
-            this.setState({availableOptions: ['Delete message', 'Mute', 'Warn']})
-            this.pointRef.current.style.display = 'block'
-          }
-          if (punishments.includes('Kick')) {
-            this.setState({availableOptions: ['Delete message', 'Warn', 'Kick']})
-          }
-          if (punishments.includes('Tempban')) {
-            this.setState({availableOptions: ['Delete message', 'Warn', 'Tempban']})
-            this.durationRef.current.style.display = 'block'
-          }
-          if (punishments.includes('Ban')) {
-            this.setState({availableOptions: ['Delete message', 'Ban']})
-          }
-        }
-
-
-    render() {
-        return <Grid item xs={12} md={6}>
-        <Card style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-            <CardContent style={{flexGrow: 1, left:15, position: "relative", width: "calc(100% - 30px)"}}>
-                <Typography style={{position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)"}}>{this.props.offtype}</Typography>
-                <footer style={{padding: "5px 0"}}></footer>
-                <Grid xs={12} style={{width: "calc(100% - 20px)", position: "relative", left: 10}}>
-                <Typography style={{fontSize: 16, width: "100%", display: "block"}}>Actions to be taken</Typography>
-                <Autocomplete value={this.state.punishments} onChange={this.onPunishTagsChange} multiple style={{height: 32, width:"100%"}} options={this.state.availableOptions} renderInput={(params) => <TextField {...params} placeholder={this.props.placeholder} />} />
-                <div ref={this.durationRef} style={{display: "none"}}>
-                <footer style={{padding: "10px 0"}}></footer>
-                <Grid xs={12} style={{position: "relative"}}>
-                <input ref={this.timeAmount} onInput={this.timeAmountChange} defaultValue={this.state.timeValue} style={{height: 30, fontSize: 18, width: `calc(100% - 110px)`}} type="number"/><select defaultValue={this.state.actualTime}ref={this.time} onChange={this.timeUnitChange} style={{width: 100, position: "absolute", fontSize: 16,height: 30,right: 0}}><option value={"seconds"}>Seconds</option> <option  value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
-                </Grid>
-                </div>
-                <div ref={this.pointRef} style={{display: "none"}}>
-                <footer style={{padding: "10px 0"}}></footer>
-                <Grid xs={12} style={{position: "relative"}}>
-                <input onInput={this.onPointChange} ref={this.points} defaultValue={this.state.points} style={{height: 30, fontSize: 18, width: `calc(100% - 80px)`}} type="number"/><Typography style={{width:80,textAlign: "right", fontSize: 16,  position: "absolute", right: 0, top: "calc(50% - 12px)"}}>Points</Typography>
-                </Grid>
-                </div>
-                <Gap></Gap>
-                <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Punish after</Typography>
-                <Grid container spacing={4} style={{position: "relative", top: 10}}>
-                    <Grid item xs={12} md={6} style={{position: "relative"}}><input ref={this.amountLimit} defaultValue={this.state.amountLimit} style={{height: 30, fontSize: 18, width: `calc(100% - ${this.props.textWidth1}px)`}} onInput={this.amountChange}type="number"/><Typography style={{width:this.props.textWidth1, display: "flex", fontSize: 16, padding: "3px 0", position: "absolute", right: 5, top: "calc(50% - 15px)"}}>{this.props.bottomoft} in</Typography></Grid>
-                    <Grid item xs={12} md={6} style={{position: "relative"}}><input ref={this.timeLimit} defaultValue={this.state.timeLimit} style={{height: 30, fontSize: 18, width: `calc(100% - 80px)`}} type="number" onInput={this.timeChange}/><Typography style={{width:80, display: "flex", fontSize: 16, padding: "3px 0", position: "absolute", right: 0, top: "calc(50% - 15px)"}}>{this.props.offUnit}</Typography></Grid>
-                </Grid>
-                <Gap></Gap>
-                <Grid xs={12} style={{position: "relative"}}>
-          <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted channels</Typography>
-          <Autocomplete onChange={this.onChannelWhitelistChange} value={Object.keys(this.state.whitelistedChannels)} multiple options={this.props.channels} renderInput={(params) => <TextField {...params}/>}/>
-      </Grid>
-      <Gap/>
-      <Grid xs={12} style={{position: "relative"}}>
-          <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted roles</Typography>
-          <Autocomplete onChange={this.onRoleWhitelistChange} value={Object.keys(this.state.whitelistedRoles)} multiple options={this.props.roles} renderInput={(params) => <TextField {...params}/>}/>
-      </Grid>
-
-                </Grid>
-            </CardContent>
-            <footer style={{padding: "20px 0"}}>
-            <Button onClick={this.saveData} style={{backgroundColor:"cornflowerblue", padding: "5px", position: "relative", left: 40, top:-9}}><Typography style={{fontSize: 18, textTransform: "initial", color: "white"}}>Save</Typography></Button>
-            </footer>
-
-        </Card>
-    </Grid>
-        
-    }
-
-
-
-    
-
-}
-
-class NABasedAutomodSet extends React.Component {
-    constructor(props) {
-        super(props);
-        this.onPunishTagsChange = this.onPunishTagsChange.bind(this);
-        this.onChannelWhitelistChange = this.onChannelWhitelistChange.bind(this);
-        this.onRoleWhitelistChange = this.onRoleWhitelistChange.bind(this);
-        this.saveData = this.saveData.bind(this)
-        this.amountChange = this.amountChange.bind(this)
-        this.onPointChange = this.onPointChange.bind(this)
-        this.onPunishTimeChange = this.onPunishTimeChange.bind(this)
-        this.state = {punishments:this.props.punishments, amountLimit:this.props.top,availableOptions:["Delete message", "Mute", "Warn", "Kick", "Tempban", "Ban"], whitelistedChannels:this.props.channel_whitelists,whitelistedRoles:this.props.role_whitelists, points: this.props.points, time: this.props.timeval, timeunit:this.props.timeunit};
-        this.time = React.createRef();
-        this.amountLimit = React.createRef();
-        this.timeAmount = React.createRef();
-        this.pointRef = React.createRef();
-        this.points = React.createRef();
-        this.durationRef = React.createRef();
-        this.timeUnitChange = this.timeUnitChange.bind(this)
-    }
-
-    onPunishTagsChange = (event, values, reason, detail) => {
-      (reason)
-      const durationNode = this.durationRef.current;
-      const pointNode = this.pointRef.current;
-  
-      var available = this.state.availableOptions;
-  
-      this.setState({
-          punishments: values 
-      }, () => {
-          const chosenOptions = Array.from(this.state.punishments)
-          if (chosenOptions.includes("Mute") || chosenOptions.includes("Tempban")) {
-              durationNode.style.display = "block"
-          } else {
-              durationNode.style.display = "none"
-  
-          }
-  
-          if (chosenOptions.includes("Warn")) {
-              pointNode.style.display = "block"
-              
-  
-          } else {
-              pointNode.style.display = "none"
-  
-          }
-      });
-  
-  
-  
-      var chosenOptions = Array.from(values)
-      if (chosenOptions.includes("Mute")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else{
-        if(reason === 'remove-option' && detail.option == "Mute") {
-        if (!available.includes("Kick")) {
-          available.push("Kick")
-        }
-        
-        if (!available.includes("Tempban")) {
-          available.push("Tempban")
-        }
-        if (!available.includes("Ban")) {
-          available.push("Ban")
-        }
       }
-    }
-  
+
       if (chosenOptions.includes("Warn")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
+        pointNode.style.display = "block"
+
+
       } else {
-        if(reason === 'remove-option' && detail.option == "Warn") {
+        pointNode.style.display = "none"
+
+      }
+    });
+
+
+
+    var chosenOptions = Array.from(values)
+    if (chosenOptions.includes("Mute")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Mute") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
@@ -526,40 +234,61 @@ class NABasedAutomodSet extends React.Component {
         }
       }
     }
-  
-      if (chosenOptions.includes("Kick")) {
-        function ok(value) {
-          return value != "Mute" && value != "Ban" && value != "Tempban"
+
+    if (chosenOptions.includes("Warn")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Warn") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
         }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(reason === 'remove-option' && detail.option == "Kick") {
-        if (!available.includes("Mute")) {
-          available.push("Mute")
-        }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
         if (!available.includes("Ban")) {
           available.push("Ban")
-        }    
+        }
       }
     }
-  
-      if (chosenOptions.includes("Tempban")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Mute"
+
+    if (chosenOptions.includes("Kick")) {
+      function ok(value) {
+        return value != "Mute" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Kick") {
+        if (!available.includes("Mute")) {
+          available.push("Mute")
         }
-        const temp = available.filter(ok)
-        available = temp
-      } else {
-        if(reason === 'remove-option' && detail.option == "Tempban") {
+
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Tempban")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Mute"
+      }
+      const temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Tempban") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
@@ -568,19 +297,19 @@ class NABasedAutomodSet extends React.Component {
         }
       }
     }
-  
-      if (chosenOptions.includes("Ban")) {
-        function ok(value) {
-          return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(((reason === 'remove-option'||reason === 'clear')||reason === 'clear') && detail.option == "Ban") {
+
+    if (chosenOptions.includes("Ban")) {
+      function ok(value) {
+        return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Ban") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
@@ -593,247 +322,643 @@ class NABasedAutomodSet extends React.Component {
         if (!available.includes("Warn")) {
           available.push("Warn")
         }
-        
       }
     }
 
     if (reason === 'clear') {
-      available = ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban','Ban']
-    }
-  
-      this.setState({
-        availableOptions: available
-      })
-  
-  
+      available = ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban', 'Ban']
     }
 
+
+    this.setState({
+      availableOptions: punishmentSort(available)
+    })
+
+
+  }
 
   onChannelWhitelistChange = (event, values) => {
     const channelobj = this.props.channelobj
     let channels = {}
-    values.forEach(value => {channels[value] = channelobj[value]})
-      this.setState({
-        whitelistedChannels: channels
-      })
+    values.forEach(value => { channels[value] = channelobj[value] })
+    this.setState({
+      whitelistedChannels: channels
+    })
   }
 
   onRoleWhitelistChange = (event, values) => {
     const roleobj = this.props.roleobj
     let roles = {}
-    values.forEach(value => {roles[value] = roleobj[value]})
-      this.setState({
-        whitelistedRoles: roles
-      })
+    values.forEach(value => { roles[value] = roleobj[value] })
+    this.setState({
+      whitelistedRoles: roles
+    })
+  }
+
+  saveData() {
+    const timeval = this.time.current.value
+    var logData = {}
+    logData = { type: 'spam', table: this.props.table, guild: this.props.server, punishments: this.state.punishments, whitelistedChannels: this.state.whitelistedChannels, whitelistedRoles: this.state.whitelistedRoles, limit: [this.state.amountLimit, this.state.timeLimit], timeValue: this.state.timeValue, actualTime: this.state.actualTime, punishTime: 0, warnPoints: 0 }
+    if (this.state.punishments.includes("Mute") || this.state.punishments.includes("Tempban")) {
+      if (timeval == "seconds") {
+        logData.punishTime = this.state.timeValue
+      }
+      if (timeval == "minutes") {
+        logData.punishTime = 60 * this.state.timeValue
+      }
+      if (timeval == "hours") {
+        logData.punishTime = 3600 * this.state.timeValue
+      }
+      if (timeval == "days") {
+        logData.punishTime = 86400 * this.state.timeValue
+      }
+    }
+
+    if (this.state.punishments.includes("Warn")) {
+      logData.warnPoints = this.state.points
+    }
+    fetch('/api/send-msgautomod', {
+      method: 'POST',
+      body: JSON.stringify(logData),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    
+
+
+    this.setState({ currentStuff: this.state })
+
   }
 
   amountChange() {
     const value = this.amountLimit.current.value;
-    this.setState({amountLimit: parseInt(value)})
-  } 
-
-  onPunishTimeChange() {
-    const value = parseInt(this.timeAmount.current.value)
-    this.setState({time: value}) 
+    this.setState({ amountLimit: parseInt(value) })
   }
 
   onPointChange() {
     const value = parseInt(this.points.current.value)
-    this.setState({points: value})
+    if (value.length == 0) {
+      this.points.current.value = 0
+      this.setState({ points: 0 })
+    } else {
+      this.setState({ points: value })
+    }
   }
+
+  timeChange() {
+    const value = this.timeLimit.current.value;
+    this.setState({ timeLimit: parseInt(value) })
+  }
+
+  timeAmountChange() {
+    const value = this.timeAmount.current.value
+    if (value.length == 0) {
+      this.timeAmount.current.value = 0
+      this.setState({ timeValue: 0 })
+    } else {
+      this.setState({ timeValue: parseInt(value) })
+    }
+  }
+
   timeUnitChange(e) {
-    this.setState({timeunit: e.target.value})
+    this.setState({ actualTime: e.target.value })
+  }
+
+  changePunishSize = () => {
+    const e = document.getElementById(`${this.props.table}punishselect`)
+    e.parentElement.parentElement.parentElement.style.height = `${e.parentElement.offsetHeight}px`
+  }
+
+  componentDidMount() {
+
+    const punishments = this.state.punishments
+    if (punishments.includes('Mute')) {
+      this.setState({ availableOptions: ['Delete message', 'Mute', 'Warn'] })
+      this.durationRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Warn')) {
+      this.setState({ availableOptions: ['Delete message', 'Mute', 'Warn'] })
+      this.pointRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Kick')) {
+      this.setState({ availableOptions: ['Delete message', 'Warn', 'Kick'] })
+    }
+    if (punishments.includes('Tempban')) {
+      this.setState({ availableOptions: ['Delete message', 'Warn', 'Tempban'] })
+      this.durationRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Ban')) {
+      this.setState({ availableOptions: ['Delete message', 'Ban'] })
+    }
+    let chwl = {}
+    let rlwl = {}
+    let ch_whitelists = Object.keys(this.props.channelobj).filter(f => Object.values(this.props.channel_whitelists).includes(this.props.channelobj[f]))
+    let rl_whitelists = Object.keys(this.props.roleobj).filter(f => Object.values(this.props.role_whitelists).includes(this.props.roleobj[f]))
+    ch_whitelists.forEach(ch => chwl[ch] = this.props.channelobj[ch])
+    rl_whitelists.forEach(rl => rlwl[rl] = this.props.roleobj[rl])
+    this.setState({ whitelistedChannels: chwl })
+    this.setState({ whitelistedRoles: rlwl })
+    this.setState({ currentStuff: this.state })
+    this.changePunishSize()
+    const s = new ResizeSensor(document.getElementById(`${this.props.table}punishselect`).parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement, this.changePunishSize)
+
+
+  }
+
+
+  render() {
+    return <Grid item xs={12} md={6}>
+      <Card style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <CardContent style={{ flexGrow: 1, left: 15, position: "relative", width: "calc(100% - 30px)" }}>
+          <Typography style={{ position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)" }}>{this.props.offtype}</Typography>
+          <footer style={{ padding: "5px 0" }}></footer>
+          <Grid xs={12} style={{ width: "calc(100% - 20px)", position: "relative", left: 10 }}>
+            <Grid container >
+              <Grid item xs={12}>
+                <Typography style={{ fontSize: 16, width: "100%", display: "block" }}>Actions to be taken</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Autocomplete id={`${this.props.table}punishselect`} value={this.state.punishments} onChange={this.onPunishTagsChange} multiple style={{ height: 32, width: "100%" }} options={this.state.availableOptions} renderInput={(params) => <TextField {...params} placeholder={this.props.placeholder} />} />
+              </Grid>
+            </Grid>
+            <Grid xs={12} style={{ position: "relative" }} >
+              <div ref={this.durationRef} style={{ display: "none", position: "relative" }}>
+                <footer style={{ padding: "10px 0" }}></footer>
+                <input ref={this.timeAmount} onInput={this.timeAmountChange} defaultValue={this.state.timeValue} style={{ height: 30, fontSize: 18, width: `calc(100% - 110px)` }} type="number" /><select defaultValue={this.state.actualTime} ref={this.time} onChange={this.timeUnitChange} style={{ width: 100, position: "absolute", fontSize: 16, height: 30, right: 0 }}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
+              </div>
+              <div ref={this.pointRef} style={{ display: "none", position: "relative" }}>
+                <footer style={{ padding: "10px 0" }}></footer>
+                <input onInput={this.onPointChange} ref={this.points} defaultValue={this.state.points} style={{ height: 30, fontSize: 18, width: `calc(100% - 80px)` }} type="number" /><Typography style={{ width: 80, textAlign: "right", fontSize: 16, position: "absolute", right: 0, top: "calc(50% - 2px)" }}>Points</Typography>
+              </div>
+            </Grid>
+            
+            <Gap></Gap>
+            <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Punish after</Typography>
+
+            <Grid container spacing={4} style={{ position: "relative", top: 10 }}>
+
+              <Grid item xs={12} md={6} style={{ position: "relative" }}><input ref={this.amountLimit} defaultValue={this.state.amountLimit} style={{ height: 30, fontSize: 18, width: `calc(100% - ${this.props.textWidth1}px)` }} onInput={this.amountChange} type="number" /><Typography style={{ width: this.props.textWidth1, display: "flex", fontSize: 16, padding: "3px 0", position: "absolute", right: 5, top: "calc(50% - 15px)" }}>{this.props.bottomoft} in</Typography></Grid>
+              <Grid item xs={12} md={6} style={{ position: "relative" }}><input ref={this.timeLimit} defaultValue={this.state.timeLimit} style={{ height: 30, fontSize: 18, width: `calc(100% - 80px)` }} type="number" onInput={this.timeChange} /><Typography style={{ width: 80, display: "flex", fontSize: 16, padding: "3px 0", position: "absolute", right: 0, top: "calc(50% - 15px)" }}>{this.props.offUnit}</Typography></Grid>
+            </Grid>
+            <Gap></Gap>
+            <Grid xs={12} style={{ position: "relative" }}>
+              <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted channels</Typography>
+              <Autocomplete onChange={this.onChannelWhitelistChange} value={Object.keys(this.props.channelobj).filter(f => Object.values(this.state.whitelistedChannels).includes(this.props.channelobj[f]))} multiple options={Object.keys(this.props.channelobj)} renderInput={(params) => <TextField {...params} />} />
+            </Grid>
+            <Gap />
+            <Grid xs={12} style={{ position: "relative" }}>
+              <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted roles</Typography>
+              <Autocomplete onChange={this.onRoleWhitelistChange} value={Object.keys(this.props.roleobj).filter(f => Object.values(this.state.whitelistedRoles).includes(this.props.roleobj[f]))} multiple options={this.props.roles} renderInput={(params) => <TextField {...params} />} />
+            </Grid>
+
+          </Grid>
+        </CardContent>
+        <footer style={{ padding: "20px 0" }}>
+          <Button onClick={this.saveData} style={{ backgroundColor: "cornflowerblue", padding: "5px", position: "relative", left: 40, top: -9 }}><Typography style={{ fontSize: 18, textTransform: "initial", color: "white" }}>Save</Typography></Button>
+        </footer>
+
+      </Card>
+    </Grid>
+
+  }
+
+
+
+
+
+}
+
+class NABasedAutomodSet extends React.Component {
+  constructor(props) {
+    super(props);
+    this.onPunishTagsChange = this.onPunishTagsChange.bind(this);
+    this.onChannelWhitelistChange = this.onChannelWhitelistChange.bind(this);
+    this.onRoleWhitelistChange = this.onRoleWhitelistChange.bind(this);
+    this.saveData = this.saveData.bind(this)
+    this.amountChange = this.amountChange.bind(this)
+    this.onPointChange = this.onPointChange.bind(this)
+    this.onPunishTimeChange = this.onPunishTimeChange.bind(this)
+    this.state = { punishments: this.props.punishments, amountLimit: this.props.top, availableOptions: ["Delete message", "Mute", "Warn", "Kick", "Tempban", "Ban"], whitelistedChannels: this.props.channel_whitelists, whitelistedRoles: this.props.role_whitelists, points: this.props.points, time: this.props.timeval, timeunit: this.props.timeunit };
+    this.time = React.createRef();
+    this.amountLimit = React.createRef();
+    this.timeAmount = React.createRef();
+    this.pointRef = React.createRef();
+    this.points = React.createRef();
+    this.durationRef = React.createRef();
+    this.timeUnitChange = this.timeUnitChange.bind(this)
+    this.changePunishSize = this.changePunishSize.bind(this)
+
+  }
+
+  changePunishSize = () => {
+    const e = document.getElementById(`${this.props.table}punishselect`)
+    e.parentElement.parentElement.parentElement.style.height = `${e.parentElement.offsetHeight}px`
+  }
+
+  onPunishTagsChange = (event, values, reason, detail) => {
+    this.changePunishSize()
+
+    const durationNode = this.durationRef.current;
+    const pointNode = this.pointRef.current;
+
+    var available = this.state.availableOptions;
+
+    this.setState({
+      punishments: values
+    }, () => {
+      const chosenOptions = Array.from(this.state.punishments)
+      if (chosenOptions.includes("Mute") || chosenOptions.includes("Tempban")) {
+        durationNode.style.display = "block"
+      } else {
+        durationNode.style.display = "none"
+
+      }
+
+      if (chosenOptions.includes("Warn")) {
+        pointNode.style.display = "block"
+
+
+      } else {
+        pointNode.style.display = "none"
+
+      }
+    });
+
+
+
+    var chosenOptions = Array.from(values)
+    if (chosenOptions.includes("Mute")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Mute") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
+        }
+
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Warn")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Warn") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
+        }
+
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Kick")) {
+      function ok(value) {
+        return value != "Mute" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Kick") {
+        if (!available.includes("Mute")) {
+          available.push("Mute")
+        }
+
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Tempban")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Mute"
+      }
+      const temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Tempban") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
+        }
+
+        if (!available.includes("Mute")) {
+          available.push("Mute")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Ban")) {
+      function ok(value) {
+        return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Ban") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
+        }
+
+        if (!available.includes("Mute")) {
+          available.push("Mute")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Warn")) {
+          available.push("Warn")
+        }
+
+      }
+    }
+
+    if (reason === 'clear') {
+      available = ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban', 'Ban']
+    }
+
+    this.setState({
+      availableOptions: punishmentSort(available)
+    })
+
+
+  }
+
+
+  onChannelWhitelistChange = (event, values) => {
+    const channelobj = this.props.channelobj
+    let channels = {}
+    values.forEach(value => { channels[value] = channelobj[value] })
+    this.setState({
+      whitelistedChannels: channels
+    })
+  }
+
+  onRoleWhitelistChange = (event, values) => {
+    const roleobj = this.props.roleobj
+    let roles = {}
+    values.forEach(value => { roles[value] = roleobj[value] })
+    this.setState({
+      whitelistedRoles: roles
+    })
+  }
+
+  amountChange() {
+    const value = this.amountLimit.current.value;
+    this.setState({ amountLimit: parseInt(value) })
+  }
+
+  onPunishTimeChange() {
+    const value = this.timeAmount.current.value
+      if (value.length == 0) {
+        this.timeAmount.current.value = 0
+        this.setState({ timeValue: 0 })
+      } else {
+        this.setState({ timeValue: parseInt(value) })
+      }
+  }
+
+  onPointChange() {
+    const value = parseInt(this.points.current.value)
+    if (value.length == 0) {
+      this.points.current.value = 0
+      this.setState({ points: 0 })
+    } else {
+      this.setState({ points: value })
+    }
+  }
+
+  timeUnitChange(e) {
+    this.setState({ timeunit: e.target.value })
   }
   componentDidMount() {
     const punishments = this.state.punishments
     if (punishments.includes('Mute')) {
-      this.setState({availableOptions: ['Delete message', 'Mute', 'Warn']})
+      this.setState({ availableOptions: ['Delete message', 'Mute', 'Warn'] })
       this.durationRef.current.style.display = 'block'
     }
     if (punishments.includes('Warn')) {
+      this.setState({ availableOptions: ['Delete message', 'Mute', 'Warn'] })
       this.pointRef.current.style.display = 'block'
     }
     if (punishments.includes('Kick')) {
-      this.setState({availableOptions: ['Delete message', 'Warn', 'Kick']})
+      this.setState({ availableOptions: ['Delete message', 'Warn', 'Kick'] })
     }
     if (punishments.includes('Tempban')) {
-      this.setState({availableOptions: ['Delete message', 'Warn', 'Tempban']})
+      this.setState({ availableOptions: ['Delete message', 'Warn', 'Tempban'] })
       this.durationRef.current.style.display = 'block'
     }
     if (punishments.includes('Ban')) {
-      this.setState({availableOptions: ['Delete message', 'Ban']})
+      this.setState({ availableOptions: ['Delete message', 'Ban'] })
     }
+    let chwl = {}
+    let rlwl = {}
+    let ch_whitelists = Object.keys(this.props.channelobj).filter(f => Object.values(this.props.channel_whitelists).includes(this.props.channelobj[f]))
+    let rl_whitelists = Object.keys(this.props.roleobj).filter(f => Object.values(this.props.role_whitelists).includes(this.props.roleobj[f]))
+    ch_whitelists.forEach(ch => chwl[ch] = this.props.channelobj[ch])
+    rl_whitelists.forEach(rl => rlwl[rl] = this.props.roleobj[rl])
+    this.setState({ whitelistedChannels: chwl })
+    this.setState({ whitelistedRoles: rlwl })
+    this.setState({ currentStuff: this.state })
+
+    this.changePunishSize()
+    const s = new ResizeSensor(document.getElementById(`${this.props.table}punishselect`).parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement, this.changePunishSize)
+
+
   }
-  saveData(){
-          
-        const timeval = this.time.current.value
-        var logData = {}
-        logData = {type: 'nabased',table: this.props.table, guild: this.props.server, punishments: this.state.punishments, whitelistedChannels: this.state.whitelistedChannels, time: this.state.time,whitelistedRoles: this.state.whitelistedRoles, limit:this.state.amountLimit,  actualTime: this.state.timeunit, punishTime: 0, warnPoints: this.state.points, timeval:this.state.time}
-        if (this.state.punishments.includes("Mute") || this.state.punishments.includes("Tempban")) {
-          if (timeval == "seconds") {
-            logData.punishTime = this.state.time
-          } 
-          if (timeval == "minutes") {
-            logData.punishTime = 60*this.state.time
-          } 
-          if (timeval == "hours") {
-            logData.punishTime = 3600*this.state.time
-          } 
-          if (timeval == "days") {
-            logData.punishTime = 86400*this.state.time
-          } 
-        }
-        (logData)
-        fetch('/api/send-automod', {
-          method: 'POST',
-          body: JSON.stringify(logData),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        
+  saveData() {
 
-        
-
-        
+    const timeval = this.time.current.value
+    var logData = {}
+    logData = { type: 'nabased', table: this.props.table, guild: this.props.server, punishments: this.state.punishments, whitelistedChannels: this.state.whitelistedChannels, time: this.state.time, whitelistedRoles: this.state.whitelistedRoles, limit: this.state.amountLimit, actualTime: this.state.timeunit, punishTime: 0, warnPoints: this.state.points, timeval: this.state.time }
+    if (this.state.punishments.includes("Mute") || this.state.punishments.includes("Tempban")) {
+      if (timeval == "seconds") {
+        logData.punishTime = this.state.time
       }
-
-
-    render() {
-        return <Grid item xs={12} md={6}>
-        <Card style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-            <CardContent style={{flexGrow: 1, left:15, position: "relative", width: "calc(100% - 30px)"}}>
-                <Typography style={{position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)"}}>{this.props.offtype}</Typography>
-                <footer style={{padding: "5px 0"}}></footer>
-                <Grid xs={12} style={{width: "calc(100% - 20px)", position: "relative", left: 10}}>
-                <Typography style={{fontSize: 16, width: "100%", display: "block"}}>Actions to be taken</Typography>
-                <Autocomplete onChange={this.onPunishTagsChange} multiple style={{height: 32, width:"100%"}} options={this.state.availableOptions} value={this.state.punishments}renderInput={(params) => <TextField {...params} placeholder={this.props.placeholder} />} />
-                <div ref={this.durationRef} style={{display: "none"}}>
-                <footer style={{padding: "10px 0"}}></footer>
-                <Grid xs={12} style={{position: "relative"}}>
-                <input ref={this.timeAmount} defaultValue={this.state.time}style={{height: 30, fontSize: 18, width: `calc(100% - 110px)`}} onInput={this.onPunishTimeChange}type="number"/><select onChange={this.timeUnitChange} ref={this.time} style={{width: 100, position: "absolute", fontSize: 16,height: 30,right: 0}}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
-                </Grid>
-                </div>
-                <div ref={this.pointRef} style={{display: "none"}}>
-                <footer style={{padding: "10px 0"}}></footer>
-                <Grid xs={12} style={{position: "relative"}}>
-                <input ref={this.points} defaultValue={this.state.points} style={{height: 30, fontSize: 18, width: `calc(100% - 80px)`}} type="number" onInput={this.onPointChange}/><Typography style={{width:80,textAlign: "right", fontSize: 16,  position: "absolute", right: 0, top: "calc(50% - 12px)"}}>Points</Typography>
-                </Grid>
-                </div>
-                <Gap></Gap>
-                <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Punish after</Typography>
-                <Grid item xs={12} style={{position: "relative", top: 10}}><input style={{height: 30, fontSize: 18, width: `calc(100% - ${this.props.textWidth1 + 5}px)`}} type="number" defaultValue={this.state.amountLimit} onInput={this.amountChange} ref={this.amountLimit}/><Typography style={{width:this.props.textWidth1, display: "block", fontSize: 16, padding: "3px 0", position: "absolute", textAlign: "center", right: 0, top: "calc(50% - 15px)"}}>{this.props.oftdesc}</Typography></Grid>
-                <Gap></Gap>
-                <Grid xs={12} style={{position: "relative"}}>
-                <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted channels</Typography>
-                <Autocomplete onChange={this.onChannelWhitelistChange} value={Object.keys(this.state.whitelistedChannels)}multiple options={this.props.channels} renderInput={(params) => <TextField {...params}/>}/>
-            </Grid>
-            <Gap/>
-            <Grid xs={12} style={{position: "relative"}}>
-                <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted roles</Typography>
-                <Autocomplete onChange={this.onRoleWhitelistChange} value={Object.keys(this.state.whitelistedRoles)} multiple options={this.props.roles} renderInput={(params) => <TextField {...params}/>}/>
-            </Grid>
-
-                </Grid>
-            </CardContent>
-            <footer style={{padding: "20px 0"}}>
-                <Button onClick={this.saveData}style={{backgroundColor:"cornflowerblue", padding: "5px", position: "relative", left: 40, top:-9}}><Typography style={{fontSize: 18, textTransform: "initial", color: "white"}}>Save</Typography></Button>
-            </footer>
-
-        </Card>
-    </Grid>
-        
+      if (timeval == "minutes") {
+        logData.punishTime = 60 * this.state.time
+      }
+      if (timeval == "hours") {
+        logData.punishTime = 3600 * this.state.time
+      }
+      if (timeval == "days") {
+        logData.punishTime = 86400 * this.state.time
+      }
     }
-
-
+    
+    fetch('/api/send-msgautomod', {
+      method: 'POST',
+      body: JSON.stringify(logData),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
 
     
+
+
+
+    this.setState({ currentStuff: this.state })
+
+
+
+
+
+  }
+
+
+  render() {
+    return <Grid item xs={12} md={6}>
+      <Card style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <CardContent style={{ flexGrow: 1, left: 15, position: "relative", width: "calc(100% - 30px)" }}>
+          <Typography style={{ position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)" }}>{this.props.offtype}</Typography>
+          <footer style={{ padding: "5px 0" }}></footer>
+          <Grid xs={12} style={{ width: "calc(100% - 20px)", position: "relative", left: 10 }}>
+            <Grid container >
+              <Grid item xs={12}>
+                <Typography style={{ fontSize: 16, width: "100%", display: "block" }}>Actions to be taken</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Autocomplete id={`${this.props.table}punishselect`} value={this.state.punishments} onChange={this.onPunishTagsChange} multiple style={{ height: 32, width: "100%" }} options={this.state.availableOptions} renderInput={(params) => <TextField {...params} placeholder={this.props.placeholder} />} />
+              </Grid>
+            </Grid>
+            <Grid xs={12} style={{ position: "relative" }} >
+              <div ref={this.durationRef} style={{ display: "none", position: "relative" }}>
+                <footer style={{ padding: "10px 0" }}></footer>
+                <input ref={this.timeAmount} onInput={this.onPunishTimeChange} defaultValue={this.state.time} style={{ height: 30, fontSize: 18, width: `calc(100% - 110px)` }} type="number" /><select defaultValue={this.state.timeunit} ref={this.time} onChange={this.timeUnitChange} style={{ width: 100, position: "absolute", fontSize: 16, height: 30, right: 0 }}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
+              </div>
+              <div ref={this.pointRef} style={{ display: "none", position: "relative" }}>
+                <footer style={{ padding: "10px 0" }}></footer>
+                <input onInput={this.onPointChange} ref={this.points} defaultValue={this.state.points} style={{ height: 30, fontSize: 18, width: `calc(100% - 80px)` }} type="number" /><Typography style={{ width: 80, textAlign: "right", fontSize: 16, position: "absolute", right: 0, top: "calc(50% - 2px)" }}>Points</Typography>
+              </div>
+            </Grid>
+            <Gap></Gap>
+            <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Punish after</Typography>
+            <Grid item xs={12} style={{ position: "relative", top: 10 }}><input style={{ height: 30, fontSize: 18, width: `calc(100% - ${this.props.textWidth1 + 5}px)` }} type="number" defaultValue={this.state.amountLimit} onInput={this.amountChange} ref={this.amountLimit} /><Typography style={{ width: this.props.textWidth1, display: "block", fontSize: 16, padding: "3px 0", position: "absolute", textAlign: "center", right: 0, top: "calc(50% - 15px)" }}>{this.props.oftdesc}</Typography></Grid>
+            <Gap></Gap>
+            <Grid xs={12} style={{ position: "relative" }}>
+              <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted channels</Typography>
+              <Autocomplete onChange={this.onChannelWhitelistChange} value={Object.keys(this.props.channelobj).filter(f => Object.values(this.state.whitelistedChannels).includes(this.props.channelobj[f]))} multiple options={this.props.channels} renderInput={(params) => <TextField {...params} />} />
+            </Grid>
+            <Gap />
+            <Grid xs={12} style={{ position: "relative" }}>
+              <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted roles</Typography>
+              <Autocomplete onChange={this.onRoleWhitelistChange} value={Object.keys(this.props.roleobj).filter(f => Object.values(this.state.whitelistedRoles).includes(this.props.roleobj[f]))} multiple options={this.props.roles} renderInput={(params) => <TextField {...params} />} />
+            </Grid>
+
+          </Grid>
+        </CardContent>
+        <footer style={{ padding: "20px 0" }}>
+          <Button onClick={this.saveData} style={{ backgroundColor: "cornflowerblue", padding: "5px", position: "relative", left: 40, top: -9 }}><Typography style={{ fontSize: 18, textTransform: "initial", color: "white" }}>Save</Typography></Button>
+        </footer>
+
+      </Card>
+    </Grid>
+
+  }
+
+
+
+
 
 }
 
 class TAAutomodSet extends React.Component {
-    constructor(props) {
-        super(props);
-        this.onPunishTagsChange = this.onPunishTagsChange.bind(this);
-        this.onChannelWhitelistChange = this.onChannelWhitelistChange.bind(this);
-        this.onRoleWhitelistChange = this.onRoleWhitelistChange.bind(this);
-        this.onTimeChange = this.onTimeChange.bind(this)
-        this.timeUnitChange = this.timeUnitChange.bind(this)
-        this.state = {punishments:this.props.punishments, availableOptions:["Delete message", "Mute", "Warn", "Kick", "Tempban", "Ban"], whitelistedChannels:this.props.channel_whitelists,whitelistedRoles:this.props.role_whitelists, timeval: this.props.timeval, points: this.props.points, timeunit: this.props.timeunit};        
-        this.time = React.createRef();
-        this.timeAmount = React.createRef();
-        this.pointRef = React.createRef();
-        this.points = React.createRef();
-        this.durationRef = React.createRef();
-        this.onPointChange = this.onPointChange.bind(this)
-        this.saveData = this.saveData.bind(this)
+  constructor(props) {
+    super(props);
+    this.onPunishTagsChange = this.onPunishTagsChange.bind(this);
+    this.onChannelWhitelistChange = this.onChannelWhitelistChange.bind(this);
+    this.onRoleWhitelistChange = this.onRoleWhitelistChange.bind(this);
+    this.onTimeChange = this.onTimeChange.bind(this)
+    this.timeUnitChange = this.timeUnitChange.bind(this)
+    this.state = { punishments: this.props.punishments, availableOptions: ["Delete message", "Mute", "Warn", "Kick", "Tempban", "Ban"], whitelistedChannels: this.props.channel_whitelists, whitelistedRoles: this.props.role_whitelists, timeval: this.props.timeval, points: this.props.points, timeunit: this.props.timeunit };
+    this.time = React.createRef();
+    this.timeAmount = React.createRef();
+    this.pointRef = React.createRef();
+    this.points = React.createRef();
+    this.durationRef = React.createRef();
+    this.onPointChange = this.onPointChange.bind(this)
+    this.saveData = this.saveData.bind(this)
+    this.changePunishSize = this.changePunishSize.bind(this)
 
-    }
+  }
 
-    onPunishTagsChange = (event, values, reason, detail) => {
-      (reason)
-      const durationNode = this.durationRef.current;
-      const pointNode = this.pointRef.current;
-  
-      var available = this.state.availableOptions;
-  
-      this.setState({
-          punishments: values 
-      }, () => {
-          const chosenOptions = Array.from(this.state.punishments)
-          if (chosenOptions.includes("Mute") || chosenOptions.includes("Tempban")) {
-              durationNode.style.display = "block"
-          } else {
-              durationNode.style.display = "none"
-  
-          }
-  
-          if (chosenOptions.includes("Warn")) {
-              pointNode.style.display = "block"
-              
-  
-          } else {
-              pointNode.style.display = "none"
-  
-          }
-      });
-  
-  
-  
-      var chosenOptions = Array.from(values)
-      if (chosenOptions.includes("Mute")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else{
-        if(reason === 'remove-option' && detail.option == "Mute") {
-        if (!available.includes("Kick")) {
-          available.push("Kick")
-        }
-        
-        if (!available.includes("Tempban")) {
-          available.push("Tempban")
-        }
-        if (!available.includes("Ban")) {
-          available.push("Ban")
-        }
+  changePunishSize = () => {
+    const e = document.getElementById(`${this.props.table}punishselect`)
+    e.parentElement.parentElement.parentElement.style.height = `${e.parentElement.offsetHeight}px`
+  }
+
+  onPunishTagsChange = (event, values, reason, detail) => {
+    this.changePunishSize()
+
+    const durationNode = this.durationRef.current;
+    const pointNode = this.pointRef.current;
+
+    var available = this.state.availableOptions;
+
+    this.setState({
+      punishments: values
+    }, () => {
+      const chosenOptions = Array.from(this.state.punishments)
+      if (chosenOptions.includes("Mute") || chosenOptions.includes("Tempban")) {
+        durationNode.style.display = "block"
+      } else {
+        durationNode.style.display = "none"
+
       }
-    }
-  
+
       if (chosenOptions.includes("Warn")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
+        pointNode.style.display = "block"
+
+
       } else {
-        if(reason === 'remove-option' && detail.option == "Warn") {
+        pointNode.style.display = "none"
+
+      }
+    });
+
+
+
+    var chosenOptions = Array.from(values)
+    if (chosenOptions.includes("Mute")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Mute") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
@@ -842,40 +967,61 @@ class TAAutomodSet extends React.Component {
         }
       }
     }
-  
-      if (chosenOptions.includes("Kick")) {
-        function ok(value) {
-          return value != "Mute" && value != "Ban" && value != "Tempban"
+
+    if (chosenOptions.includes("Warn")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Warn") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
         }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(reason === 'remove-option' && detail.option == "Kick") {
-        if (!available.includes("Mute")) {
-          available.push("Mute")
-        }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
         if (!available.includes("Ban")) {
           available.push("Ban")
-        }    
+        }
       }
     }
-  
-      if (chosenOptions.includes("Tempban")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Mute"
+
+    if (chosenOptions.includes("Kick")) {
+      function ok(value) {
+        return value != "Mute" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Kick") {
+        if (!available.includes("Mute")) {
+          available.push("Mute")
         }
-        const temp = available.filter(ok)
-        available = temp
-      } else {
-        if(reason === 'remove-option' && detail.option == "Tempban") {
+
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Tempban")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Mute"
+      }
+      const temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Tempban") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
@@ -884,19 +1030,19 @@ class TAAutomodSet extends React.Component {
         }
       }
     }
-  
-      if (chosenOptions.includes("Ban")) {
-        function ok(value) {
-          return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(((reason === 'remove-option'||reason === 'clear')||reason === 'clear') && detail.option == "Ban") {
+
+    if (chosenOptions.includes("Ban")) {
+      function ok(value) {
+        return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Ban") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
@@ -909,234 +1055,253 @@ class TAAutomodSet extends React.Component {
         if (!available.includes("Warn")) {
           available.push("Warn")
         }
-        
+
       }
     }
 
     if (reason === 'clear') {
-      available = ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban','Ban']
+      available = ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban', 'Ban']
     }
-  
-      this.setState({
-        availableOptions: available
-      })
-  
-  
+
+    this.setState({
+      availableOptions: punishmentSort(available)
+    })
+
+
+  }
+  onChannelWhitelistChange = (event, values) => {
+    const channelobj = this.props.channelobj
+    let channels = {}
+    values.forEach(value => { channels[value] = channelobj[value] })
+    this.setState({
+      whitelistedChannels: channels
+    })
+  }
+
+  onRoleWhitelistChange = (event, values) => {
+    const roleobj = this.props.roleobj
+    let roles = {}
+    values.forEach(value => { roles[value] = roleobj[value] })
+    this.setState({
+      whitelistedRoles: roles
+    })
+  }
+
+  saveData() {
+
+    const value = parseInt(this.timeAmount.current.value)
+    const timeval = this.time.current.value
+    var logData = {}
+    logData = { table: this.props.table, type: 'taabased', guild: this.props.server, punishments: this.state.punishments, whitelistedChannels: this.state.whitelistedChannels, whitelistedRoles: this.state.whitelistedRoles, warnPoints: this.state.points, punishTime: this.state.timeval, timeval: this.state.timeval, timeunit: this.state.timeunit }
+    if (this.state.punishments.includes("Mute") || this.state.punishments.includes("Tempban")) {
+      if (timeval == "seconds") {
+        logData.punishTime = this.state.timeval
+      }
+      if (timeval == "minutes") {
+        logData.punishTime = 60 * this.state.timeval
+      }
+      if (timeval == "hours") {
+        logData.punishTime = 3600 * this.state.timeval
+      }
+      if (timeval == "days") {
+        logData.punishTime = 86400 * this.state.timeval
+      }
     }
-    onChannelWhitelistChange = (event, values) => {
-      const channelobj = this.props.channelobj
-      let channels = {}
-      values.forEach(value => {channels[value] = channelobj[value]})
-        this.setState({
-          whitelistedChannels: channels
-        })
-      }
-      
-      onRoleWhitelistChange = (event, values) => {
-        const roleobj = this.props.roleobj
-        let roles = {}
-        values.forEach(value => {roles[value] = roleobj[value]})
-          this.setState({
-            whitelistedRoles: roles
-          })
-      }
 
-      saveData(){
-          
-        const value = parseInt(this.timeAmount.current.value)
-        const timeval = this.time.current.value
-        var logData = {}
-        logData = {table: this.props.table, type: 'taabased' ,guild: this.props.server,punishments: this.state.punishments, whitelistedChannels: this.state.whitelistedChannels, whitelistedRoles: this.state.whitelistedRoles, warnPoints: this.state.points, punishTime: this.state.timeval, timeval: this.state.timeval, timeunit: this.state.timeunit}
-        if (this.state.punishments.includes("Mute") || this.state.punishments.includes("Tempban")) {
-          if (timeval == "seconds") {
-            logData.punishTime = this.state.timeval
-          } 
-          if (timeval == "minutes") {
-              logData.punishTime = 60*this.state.timeval          
-            } 
-          if (timeval == "hours") {
-            logData.punishTime = 3600*this.state.timeval
-          } 
-          if (timeval == "days") {
-            logData.punishTime = 86400*this.state.timeval
-          } 
-        }
-        
-        fetch('/api/send-automod', {
-          method: 'POST',
-          body: JSON.stringify(logData),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        
-      
+    fetch('/api/send-msgautomod', {
+      method: 'POST',
+      body: JSON.stringify(logData),
+      headers: {
+        'Content-Type': 'application/json'
       }
-      timeUnitChange(e) {
-        this.setState({timeunit: e.target.value})
-      }
-      onPointChange() {
-        const value = parseInt(this.points.current.value)
-        this.setState({points: value})
-      }
+    })
 
-      componentDidMount() {
-        const punishments = this.state.punishments
-        if (punishments.includes('Mute')) {
-          this.setState({availableOptions: ['Delete message', 'Mute', 'Warn']})
-          this.durationRef.current.style.display = 'block'
-        }
-        if (punishments.includes('Warn')) {
-          this.pointRef.current.style.display = 'block'
-        }
-        if (punishments.includes('Kick')) {
-          this.setState({availableOptions: ['Delete message', 'Warn', 'Kick']})
-        }
-        if (punishments.includes('Tempban')) {
-          this.setState({availableOptions: ['Delete message', 'Warn', 'Tempban']})
-          this.durationRef.current.style.display = 'block'
-        }
-        if (punishments.includes('Ban')) {
-          this.setState({availableOptions: ['Delete message', 'Ban']})
-        }
-      }
 
-      onTimeChange = (e) => {
-        const value = parseInt(e.target.value)
-        this.setState({timeval: value})
-      }
 
-    render() {
-        return  <Grid item xs={12} md={6}>
-        <Card style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-            <CardContent style={{flexGrow: 1, left:15, position: "relative", width: "calc(100% - 30px)"}}>
-                <Typography style={{position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)"}}>{this.props.offtype}</Typography>
-                <footer style={{padding: "5px 0"}}></footer>
-                <Grid xs={12} style={{width: "calc(100% - 20px)", position: "relative", left: 10}}>
-                <Typography style={{fontSize: 16, width: "100%", display: "block"}}>Actions to be taken</Typography>
-                <Autocomplete onChange={this.onPunishTagsChange} multiple style={{height: 32, width:"100%"}} value={this.state.punishments} options={this.state.availableOptions} renderInput={(params) => <TextField {...params} placeholder={this.props.placeholder} />} />
-                <div ref={this.durationRef} style={{display: "none"}}>
-                <footer style={{padding: "10px 0"}}></footer>
-                <Grid xs={12} style={{position: "relative"}}>
-                <input ref={this.timeAmount} onInput={this.onTimeChange} defaultValue={this.state.timeval} style={{height: 30, fontSize: 18, width: `calc(100% - 110px)`}} type="number"/><select defaultValue={this.state.timeunit} onChange={this.timeUnitChange} ref={this.time} style={{width: 100, position: "absolute", fontSize: 16,height: 30,right: 0}}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
-                </Grid>
-                </div>
-                <div ref={this.pointRef} style={{display: "none"}}>
-                <footer style={{padding: "10px 0"}}></footer>
-                <Grid xs={12} style={{position: "relative"}}>
-                <input onInput={this.onPointChange} ref={this.points} defaultValue={this.state.points} style={{height: 30, fontSize: 18, width: `calc(100% - 80px)`}} type="number"/><Typography style={{width:80,textAlign: "right", fontSize: 16,  position: "absolute", right: 0, top: "calc(50% - 12px)"}}>Points</Typography>
-                </Grid>
-                </div>
-                <Gap></Gap>
-                <Grid xs={12} style={{position: "relative"}}>
-                    <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted channels</Typography>
-                    <Autocomplete onChange={this.onChannelWhitelistChange} value={Object.keys(this.state.whitelistedChannels)} multiple options={this.props.channels} renderInput={(params) => <TextField {...params}/>}/>
-                </Grid>
-                <Gap/>
-                <Grid xs={12} style={{position: "relative"}}>
-                    <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted roles</Typography>
-                    <Autocomplete onChange={this.onRoleWhitelistChange} value={Object.keys(this.state.whitelistedRoles)} multiple options={this.props.roles} renderInput={(params) => <TextField {...params}/>}/>
-                </Grid>
-                </Grid>
-            </CardContent>
-            <footer style={{padding: "20px 0"}}>
-            <Button onClick={this.saveData} style={{backgroundColor:"cornflowerblue", padding: "5px", position: "relative", left: 40, top:-9}}><Typography style={{fontSize: 18, textTransform: "initial", color: "white"}}>Save</Typography></Button>
-            </footer>
+    this.setState({ currentStuff: this.state })
 
-        </Card>
+
+  }
+
+  timeUnitChange(e) {
+    this.setState({ timeunit: e.target.value })
+  }
+
+  onPointChange() {
+    const value = parseInt(this.points.current.value)
+    if (value.length == 0) {
+      this.points.current.value = 0
+      this.setState({ points: 0 })
+    } else {
+      this.setState({ points: value })
+    }
+  }
+
+  
+
+  componentDidMount() {
+    const punishments = this.state.punishments
+    if (punishments.includes('Mute')) {
+      this.setState({ availableOptions: ['Delete message', 'Mute', 'Warn'] })
+      this.durationRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Warn')) {
+      this.setState({ availableOptions: ['Delete message', 'Mute', 'Warn'] })
+      this.pointRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Kick')) {
+      this.setState({ availableOptions: ['Delete message', 'Warn', 'Kick'] })
+    }
+    if (punishments.includes('Tempban')) {
+      this.setState({ availableOptions: ['Delete message', 'Warn', 'Tempban'] })
+      this.durationRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Ban')) {
+      this.setState({ availableOptions: ['Delete message', 'Ban'] })
+    }
+    let chwl = {}
+    let rlwl = {}
+    let ch_whitelists = Object.keys(this.props.channelobj).filter(f => Object.values(this.props.channel_whitelists).includes(this.props.channelobj[f]))
+    let rl_whitelists = Object.keys(this.props.roleobj).filter(f => Object.values(this.props.role_whitelists).includes(this.props.roleobj[f]))
+    ch_whitelists.forEach(ch => chwl[ch] = this.props.channelobj[ch])
+    rl_whitelists.forEach(rl => rlwl[rl] = this.props.roleobj[rl])
+    this.setState({ whitelistedChannels: chwl })
+    this.setState({ whitelistedRoles: rlwl })
+    this.setState({ currentStuff: this.state })
+    this.changePunishSize()
+    const s = new ResizeSensor(document.getElementById(`${this.props.table}punishselect`).parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement, this.changePunishSize)
+  }
+
+  onTimeChange = (e) => {
+    const value = this.timeAmount.current.value
+    if (value.length == 0) {
+      this.timeAmount.current.value = 0
+      this.setState({ timeval: 0 })
+    } else {
+      this.setState({ timeval: parseInt(value) })
+    }
+  }
+
+  render() {
+    return <Grid item xs={12} md={6}>
+      <Card style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <CardContent style={{ flexGrow: 1, left: 15, position: "relative", width: "calc(100% - 30px)" }}>
+          <Typography style={{ position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)" }}>{this.props.offtype}</Typography>
+          <footer style={{ padding: "5px 0" }}></footer>
+          <Grid xs={12} style={{ width: "calc(100% - 20px)", position: "relative", left: 10 }}>
+          <Grid container >
+              <Grid item xs={12}>
+                <Typography style={{ fontSize: 16, width: "100%", display: "block" }}>Actions to be taken</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Autocomplete id={`${this.props.table}punishselect`} value={this.state.punishments} onChange={this.onPunishTagsChange} multiple style={{ height: 32, width: "100%" }} options={this.state.availableOptions} renderInput={(params) => <TextField {...params} placeholder={this.props.placeholder} />} />
+              </Grid>
+            </Grid>
+            <Grid xs={12} style={{ position: "relative" }} >
+              <div ref={this.durationRef} style={{ display: "none", position: "relative" }}>
+                <footer style={{ padding: "10px 0" }}></footer>
+                <input ref={this.timeAmount} onInput={this.onTimeChange} defaultValue={this.state.timeval} style={{ height: 30, fontSize: 18, width: `calc(100% - 110px)` }} type="number" /><select defaultValue={this.state.timeunit} ref={this.time} onChange={this.timeUnitChange} style={{ width: 100, position: "absolute", fontSize: 16, height: 30, right: 0 }}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
+              </div>
+              <div ref={this.pointRef} style={{ display: "none", position: "relative" }}>
+                <footer style={{ padding: "10px 0" }}></footer>
+                <input onInput={this.onPointChange} ref={this.points} defaultValue={this.state.points} style={{ height: 30, fontSize: 18, width: `calc(100% - 80px)` }} type="number" /><Typography style={{ width: 80, textAlign: "right", fontSize: 16, position: "absolute", right: 0, top: "calc(50% - 2px)" }}>Points</Typography>
+              </div>
+            </Grid>
+            <Gap></Gap>
+            <Grid xs={12} style={{ position: "relative" }}>
+              <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted channels</Typography>
+              <Autocomplete onChange={this.onChannelWhitelistChange} value={Object.keys(this.props.channelobj).filter(f => Object.values(this.state.whitelistedChannels).includes(this.props.channelobj[f]))} multiple options={this.props.channels} renderInput={(params) => <TextField {...params} />} />
+            </Grid>
+            <Gap />
+            <Grid xs={12} style={{ position: "relative" }}>
+              <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted roles</Typography>
+              <Autocomplete onChange={this.onRoleWhitelistChange} value={Object.keys(this.props.roleobj).filter(f => Object.values(this.state.whitelistedRoles).includes(this.props.roleobj[f]))} multiple options={this.props.roles} renderInput={(params) => <TextField {...params} />} />
+            </Grid>
+          </Grid>
+        </CardContent>
+        <footer style={{ padding: "20px 0" }}>
+          <Button onClick={this.saveData} style={{ backgroundColor: "cornflowerblue", padding: "5px", position: "relative", left: 40, top: -9 }}><Typography style={{ fontSize: 18, textTransform: "initial", color: "white" }}>Save</Typography></Button>
+        </footer>
+
+      </Card>
     </Grid>
-        
-    }
+
+  }
 
 
 
-    
+
 
 }
 
 class Selfbot extends React.Component {
-    constructor(props) {
-        super(props);
-        this.onPunishTagsChange = this.onPunishTagsChange.bind(this);
-        this.onRoleWhitelistChange = this.onRoleWhitelistChange.bind(this);
-        this.state = {punishments:this.props.punishments,availableOptions:["Delete message", "Mute", "Warn", "Kick", "Tempban", "Ban"],whitelistedRoles:this.props.role_whitelists, points: this.props.points, timeval: this.props.timeval, timeunit: this.props.timeunit};
-        this.time = React.createRef();
-        this.amountLimit = React.createRef();
-        this.timeAmount = React.createRef();
-        this.pointRef = React.createRef();
-        this.points = React.createRef();
-        this.durationRef = React.createRef();
-        this.saveData = this.saveData.bind(this)
-        this.onPointChange = this.onPointChange.bind(this)
-        this.timeChange = this.timeChange.bind(this)
-        this.timeUnitChange = this.timeUnitChange.bind(this)
+  constructor(props) {
+    super(props);
+    this.onPunishTagsChange = this.onPunishTagsChange.bind(this);
+    this.onRoleWhitelistChange = this.onRoleWhitelistChange.bind(this);
+    this.state = { punishments: this.props.punishments, availableOptions: ["Delete message", "Mute", "Warn", "Kick", "Tempban", "Ban"], whitelistedRoles: this.props.role_whitelists, points: this.props.points, timeval: this.props.timeval, timeunit: this.props.timeunit };
+    this.time = React.createRef();
+    this.amountLimit = React.createRef();
+    this.timeAmount = React.createRef();
+    this.pointRef = React.createRef();
+    this.points = React.createRef();
+    this.durationRef = React.createRef();
+    this.saveData = this.saveData.bind(this)
+    this.onPointChange = this.onPointChange.bind(this)
+    this.timeChange = this.timeChange.bind(this)
+    this.timeUnitChange = this.timeUnitChange.bind(this)
+    this.changePunishSize = this.changePunishSize.bind(this)
 
-    }
+  }
 
-    onPunishTagsChange = (event, values, reason, detail) => {
-      (reason)
-      const durationNode = this.durationRef.current;
-      const pointNode = this.pointRef.current;
-  
-      var available = this.state.availableOptions;
-  
-      this.setState({
-          punishments: values 
-      }, () => {
-          const chosenOptions = Array.from(this.state.punishments)
-          if (chosenOptions.includes("Mute") || chosenOptions.includes("Tempban")) {
-              durationNode.style.display = "block"
-          } else {
-              durationNode.style.display = "none"
-  
-          }
-  
-          if (chosenOptions.includes("Warn")) {
-              pointNode.style.display = "block"
-              
-  
-          } else {
-              pointNode.style.display = "none"
-  
-          }
-      });
-  
-  
-  
-      var chosenOptions = Array.from(values)
-      if (chosenOptions.includes("Mute")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else{
-        if(reason === 'remove-option' && detail.option == "Mute") {
-        if (!available.includes("Kick")) {
-          available.push("Kick")
-        }
-        
-        if (!available.includes("Tempban")) {
-          available.push("Tempban")
-        }
-        if (!available.includes("Ban")) {
-          available.push("Ban")
-        }
+  changePunishSize = () => {
+    const e = document.getElementById(`${this.props.table}punishselect`)
+    e.parentElement.parentElement.parentElement.style.height = `${e.parentElement.offsetHeight}px`
+  }
+
+  onPunishTagsChange = (event, values, reason, detail) => {
+    this.changePunishSize()
+    const durationNode = this.durationRef.current;
+    const pointNode = this.pointRef.current;
+
+    var available = this.state.availableOptions;
+
+    this.setState({
+      punishments: values
+    }, () => {
+      const chosenOptions = Array.from(this.state.punishments)
+      if (chosenOptions.includes("Mute") || chosenOptions.includes("Tempban")) {
+        durationNode.style.display = "block"
+      } else {
+        durationNode.style.display = "none"
+
       }
-    }
-  
+
       if (chosenOptions.includes("Warn")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
+        pointNode.style.display = "block"
+
+
       } else {
-        if(reason === 'remove-option' && detail.option == "Warn") {
+        pointNode.style.display = "none"
+
+      }
+    });
+
+
+
+    var chosenOptions = Array.from(values)
+    if (chosenOptions.includes("Mute")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Mute") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
@@ -1145,40 +1310,61 @@ class Selfbot extends React.Component {
         }
       }
     }
-  
-      if (chosenOptions.includes("Kick")) {
-        function ok(value) {
-          return value != "Mute" && value != "Ban" && value != "Tempban"
+
+    if (chosenOptions.includes("Warn")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Warn") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
         }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(reason === 'remove-option' && detail.option == "Kick") {
-        if (!available.includes("Mute")) {
-          available.push("Mute")
-        }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
         if (!available.includes("Ban")) {
           available.push("Ban")
-        }    
+        }
       }
     }
-  
-      if (chosenOptions.includes("Tempban")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Mute"
+
+    if (chosenOptions.includes("Kick")) {
+      function ok(value) {
+        return value != "Mute" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Kick") {
+        if (!available.includes("Mute")) {
+          available.push("Mute")
         }
-        const temp = available.filter(ok)
-        available = temp
-      } else {
-        if(reason === 'remove-option' && detail.option == "Tempban") {
+
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Tempban")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Mute"
+      }
+      const temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Tempban") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
@@ -1187,19 +1373,19 @@ class Selfbot extends React.Component {
         }
       }
     }
-  
-      if (chosenOptions.includes("Ban")) {
-        function ok(value) {
-          return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(((reason === 'remove-option'||reason === 'clear')||reason === 'clear') && detail.option == "Ban") {
+
+    if (chosenOptions.includes("Ban")) {
+      function ok(value) {
+        return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Ban") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
@@ -1212,147 +1398,165 @@ class Selfbot extends React.Component {
         if (!available.includes("Warn")) {
           available.push("Warn")
         }
-        
+
       }
     }
 
     if (reason === 'clear') {
-      available = ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban','Ban']
-    }
-  
-      this.setState({
-        availableOptions: available
-      })
-  
-  
+      available = ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban', 'Ban']
     }
 
-    
-    onRoleWhitelistChange = (event, values) => {
-      const roleobj = this.props.roleobj
-        let roles = {}
-        values.forEach(value => {roles[value] = roleobj[value]})
-          this.setState({
-            whitelistedRoles: roles
-          })
-    }
+    this.setState({
+      availableOptions: punishmentSort(available)
+    })
 
-    saveData(){
-        
-      const value = parseInt(this.timeAmount.current.value)
-      const timeval = this.time.current.value
-      var logData = {}
-      logData = {guild: this.props.server,punishments: this.state.punishments, type: 'selfbot',table:'selfbot', whitelistedRoles: this.state.whitelistedRoles, timeval: this.state.timeval, timeunit: this.state.timeunit, points: this.state.points, duration: 0}
-      if (this.state.punishments.includes("Mute") || this.state.punishments.includes("Tempban")) {
-        if (timeval === "seconds") {
-          logData.duration = this.state.timeval
-        } 
-        if (timeval === "minutes") {
-          logData.duration = 60*this.state.timeval
-        } 
-        if (timeval === "hours") {
-          logData.duration = 3600*this.state.timeval
-        } 
-        if (timeval === "days") {
-          logData.duration = 86400*this.state.timeval
-        } 
 
-        fetch('/api/send-automod', {
-          method: 'POST',
-          body: JSON.stringify(logData),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        
-    }
-    
-    
+  }
 
-    
 
-    
-    
-    }
+  onRoleWhitelistChange = (event, values) => {
+    const roleobj = this.props.roleobj
+    let roles = {}
+    values.forEach(value => { roles[value] = roleobj[value] })
+    this.setState({
+      whitelistedRoles: roles
+    })
+  }
 
-    
-    onPointChange() {
-      const value = parseInt(this.points.current.value)
-      this.setState({points: value})
-    }
+  saveData() {
 
-    timeChange(e) {
-      const value = e.target.value
-      this.setState({timeval: parseInt(value)})
-      
-    }
-
-    timeUnitChange(e) {
-      this.setState({timeunit: e.target.value})
-    }
-
-    componentDidMount() {
-      const punishments = this.state.punishments
-      if (punishments.includes('Mute')) {
-        this.setState({availableOptions: ['Delete message', 'Mute', 'Warn']})
-        this.durationRef.current.style.display = 'block'
+    const value = parseInt(this.timeAmount.current.value)
+    const timeval = this.time.current.value
+    var logData = {}
+    logData = { guild: this.props.server, punishments: this.state.punishments, type: 'selfbot', table: 'selfbot', whitelistedRoles: this.state.whitelistedRoles, timeval: this.state.timeval, timeunit: this.state.timeunit, points: this.state.points, duration: 0 }
+    if (this.state.punishments.includes("Mute") || this.state.punishments.includes("Tempban")) {
+      if (timeval === "seconds") {
+        logData.duration = this.state.timeval
       }
-      if (punishments.includes('Warn')) {
-        this.pointRef.current.style.display = 'block'
+      if (timeval === "minutes") {
+        logData.duration = 60 * this.state.timeval
       }
-      if (punishments.includes('Kick')) {
-        this.setState({availableOptions: ['Delete message', 'Warn', 'Kick']})
+      if (timeval === "hours") {
+        logData.duration = 3600 * this.state.timeval
       }
-      if (punishments.includes('Tempban')) {
-        this.setState({availableOptions: ['Delete message', 'Warn', 'Tempban']})
-        this.durationRef.current.style.display = 'block'
-      }
-      if (punishments.includes('Ban')) {
-        this.setState({availableOptions: ['Delete message', 'Ban']})
+      if (timeval === "days") {
+        logData.duration = 86400 * this.state.timeval
       }
     }
 
+    fetch('/api/send-msgautomod', {
+      method: 'POST',
+      body: JSON.stringify(logData),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
 
-    render() {
-        return  <Grid item xs={12} md={6}>
-        <Card style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-            <CardContent style={{flexGrow: 1, left:15, position: "relative", width: "calc(100% - 30px)"}}>
-                <Typography style={{position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)"}}>{this.props.offtype}</Typography>
-                <footer style={{padding: "5px 0"}}></footer>
-                <Grid xs={12} style={{width: "calc(100% - 20px)", position: "relative", left: 10}}>
-                <Typography style={{fontSize: 16, width: "100%", display: "block"}}>Actions to be taken</Typography>
-                <Autocomplete value={this.state.punishments} onChange={this.onPunishTagsChange} multiple style={{height: 32, width:"100%"}} options={this.state.availableOptions} renderInput={(params) => <TextField {...params} placeholder={this.props.placeholder} />} />
-                <div ref={this.durationRef} style={{display: "none"}}>
-                <footer style={{padding: "10px 0"}}></footer>
-                <Grid xs={12} style={{position: "relative"}}>
-                <input ref={this.timeAmount} onInput={this.timeChange} defaultValue={this.state.timeval} style={{height: 30, fontSize: 18, width: `calc(100% - 110px)`}} type="number"/><select defaultValue="minutes" onChange={this.timeUnitChange }ref={this.time} style={{width: 100, position: "absolute", fontSize: 16,height: 30,right: 0}}><option value={"seconds"}>Seconds</option> <option  value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
-                </Grid>
-                </div>
-                <div ref={this.pointRef} style={{display: "none"}}>
-                <footer style={{padding: "10px 0"}}></footer>
-                <Grid xs={12} style={{position: "relative"}}>
-                <input onInput={this.onPointChange} ref={this.points} defaultValue={this.state.points} style={{height: 30, fontSize: 18, width: `calc(100% - 80px)`}} type="number"/><Typography style={{width:80,textAlign: "right", fontSize: 16,  position: "absolute", right: 0, top: "calc(50% - 12px)"}}>Points</Typography>
-                </Grid>
-                </div>
-                <Gap/>
-                <Grid xs={12} style={{position: "relative"}}>
-                    <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted roles</Typography>
-                    <Autocomplete onChange={this.onRoleWhitelistChange} multiple options={this.props.roles} value={Object.keys(this.state.whitelistedRoles)} renderInput={(params) => <TextField {...params}/>}/>
-                </Grid>
-                </Grid>
-            </CardContent>
-            <footer style={{padding: "20px 0"}}>
-            <Button onClick={this.saveData} style={{backgroundColor:"cornflowerblue", padding: "5px", position: "relative", left: 40, top:-9}}><Typography style={{fontSize: 18, textTransform: "initial", color: "white"}}>Save</Typography></Button>
-            </footer>
 
-        </Card>
+
+
+    this.setState({ currentStuff: this.state })
+  }
+
+
+  onPointChange() {
+    const value = parseInt(this.points.current.value)
+    if (value.length == 0) {
+      this.points.current.value = 0
+      this.setState({ points: 0 })
+    } else {
+      this.setState({ points: value })
+    }
+  }
+
+  timeChange(e) {
+    const value = this.timeAmount.current.value
+      if (value.length == 0) {
+        this.timeAmount.current.value = 0
+        this.setState({ timeval: 0 })
+      } else {
+        this.setState({ timeval: parseInt(value) })
+      }
+
+  }
+
+  timeUnitChange(e) {
+    this.setState({ timeunit: e.target.value })
+  }
+
+  componentDidMount() {
+    const punishments = this.state.punishments
+    if (punishments.includes('Mute')) {
+      this.setState({ availableOptions: ['Delete message', 'Mute', 'Warn'] })
+      this.durationRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Warn')) {
+      this.setState({ availableOptions: ['Delete message', 'Mute', 'Warn'] })
+      this.pointRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Kick')) {
+      this.setState({ availableOptions: ['Delete message', 'Warn', 'Kick'] })
+    }
+    if (punishments.includes('Tempban')) {
+      this.setState({ availableOptions: ['Delete message', 'Warn', 'Tempban'] })
+      this.durationRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Ban')) {
+      this.setState({ availableOptions: ['Delete message', 'Ban'] })
+    }
+    let rlwl = {}
+    let rl_whitelists = Object.keys(this.props.roleobj).filter(f => Object.values(this.props.role_whitelists).includes(this.props.roleobj[f]))
+    rl_whitelists.forEach(rl => rlwl[rl] = this.props.roleobj[rl])
+    this.setState({ whitelistedRoles: rlwl })
+    this.setState({ currentStuff: this.state })
+    this.changePunishSize()
+    const s = new ResizeSensor(document.getElementById(`${this.props.table}punishselect`).parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement, this.changePunishSize)
+  }
+
+  render() {
+    return <Grid item xs={12} md={6}>
+      <Card style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <CardContent style={{ flexGrow: 1, left: 15, position: "relative", width: "calc(100% - 30px)" }}>
+          <Typography style={{ position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)" }}>{this.props.offtype}</Typography>
+          <footer style={{ padding: "5px 0" }}></footer>
+          <Grid xs={12} style={{ width: "calc(100% - 20px)", position: "relative", left: 10 }}>
+          <Grid container >
+              <Grid item xs={12}>
+                <Typography style={{ fontSize: 16, width: "100%", display: "block" }}>Actions to be taken</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Autocomplete id={`${this.props.table}punishselect`} value={this.state.punishments} onChange={this.onPunishTagsChange} multiple style={{ height: 32, width: "100%" }} options={this.state.availableOptions} renderInput={(params) => <TextField {...params} placeholder={this.props.placeholder} />} />
+              </Grid>
+            </Grid>
+            <Grid xs={12} style={{ position: "relative" }} >
+              <div ref={this.durationRef} style={{ display: "none", position: "relative" }}>
+                <footer style={{ padding: "10px 0" }}></footer>
+                <input ref={this.timeAmount} onInput={this.timeAmountChange} defaultValue={this.state.time} style={{ height: 30, fontSize: 18, width: `calc(100% - 110px)` }} type="number" /><select defaultValue={this.state.actualTime} ref={this.time} onChange={this.timeUnitChange} style={{ width: 100, position: "absolute", fontSize: 16, height: 30, right: 0 }}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
+              </div>
+              <div ref={this.pointRef} style={{ display: "none", position: "relative" }}>
+                <footer style={{ padding: "10px 0" }}></footer>
+                <input onInput={this.onPointChange} ref={this.points} defaultValue={this.state.points} style={{ height: 30, fontSize: 18, width: `calc(100% - 80px)` }} type="number" /><Typography style={{ width: 80, textAlign: "right", fontSize: 16, position: "absolute", right: 0, top: "calc(50% - 2px)" }}>Points</Typography>
+              </div>
+            </Grid>
+            <Gap />
+            <Grid xs={12} style={{ position: "relative" }}>
+              <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted roles</Typography>
+              <Autocomplete onChange={this.onRoleWhitelistChange} multiple options={this.props.roles} value={Object.keys(this.props.roleobj).filter(f => Object.values(this.state.whitelistedRoles).includes(this.props.roleobj[f]))} renderInput={(params) => <TextField {...params} />} />
+            </Grid>
+          </Grid>
+        </CardContent>
+        <footer style={{ padding: "20px 0" }}>
+          <Button onClick={this.saveData} style={{ backgroundColor: "cornflowerblue", padding: "5px", position: "relative", left: 40, top: -9 }}><Typography style={{ fontSize: 18, textTransform: "initial", color: "white" }}>Save</Typography></Button>
+        </footer>
+
+      </Card>
     </Grid>
-        
-    }
+
+  }
 
 
 
-    
+
 
 }
 
@@ -1360,16 +1564,17 @@ const BlacklistBasedSet = (props) => {
   const wholeThing = React.useRef()
   const [categories, setCategories] = useState(props.categories)
   const onPunishTagsChange = (event, values, reason, detail) => {
+    
+    changePunishSize()
     let categoryInfo = categories
-    console.log(getIndex(event, 'punishments'))
+    
     const index = getIndex(event, 'punishments').index
-    const whole = getIndex(event, 'punishments').whole
     const durationNode = Array.from(wholeThing.current.getElementsByClassName('duration'))[index];
     const pointNode = Array.from(wholeThing.current.getElementsByClassName('warnpoints'))[index];
     var available = categories[index].availableOptions;
     categoryInfo[index].punishments = values
 
-  
+
     if (values.includes('Mute') || values.includes('Tempban')) {
       durationNode.style.display = 'block'
     } else {
@@ -1380,21 +1585,21 @@ const BlacklistBasedSet = (props) => {
     } else {
       pointNode.style.display = 'none'
     }
-  
-      var chosenOptions = Array.from(values)
-      
-      if (chosenOptions.includes("Mute")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else{
-        if(((reason === 'remove-option'||reason === 'clear')||reason === 'clear') && detail.option == "Mute") {
+
+    var chosenOptions = Array.from(values)
+
+    if (chosenOptions.includes("Mute")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Mute") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
@@ -1403,19 +1608,19 @@ const BlacklistBasedSet = (props) => {
         }
       }
     }
-  
-      if (chosenOptions.includes("Warn")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(((reason === 'remove-option'||reason === 'clear')||reason === 'clear') && detail.option == "Warn") {
+
+    if (chosenOptions.includes("Warn")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Warn") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
@@ -1424,40 +1629,40 @@ const BlacklistBasedSet = (props) => {
         }
       }
     }
-  
-      if (chosenOptions.includes("Kick")) {
-        function ok(value) {
-          return value != "Mute" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if((reason === 'remove-option'||reason === 'clear') && detail.option == "Kick") {
+
+    if (chosenOptions.includes("Kick")) {
+      function ok(value) {
+        return value != "Mute" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Kick") {
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
         if (!available.includes("Ban")) {
           available.push("Ban")
-        }    
+        }
       }
     }
-  
-      if (chosenOptions.includes("Tempban")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Mute"
-        }
-        const temp = available.filter(ok)
-        available = temp
-      } else {
-        if((reason === 'remove-option'||reason === 'clear') && detail.option == "Tempban") {
+
+    if (chosenOptions.includes("Tempban")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Mute"
+      }
+      const temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Tempban") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
@@ -1466,19 +1671,19 @@ const BlacklistBasedSet = (props) => {
         }
       }
     }
-  
-      if (chosenOptions.includes("Ban")) {
-        function ok(value) {
-          return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(((reason === 'remove-option'||reason === 'clear')||reason === 'clear') && detail.option == "Ban") {
+
+    if (chosenOptions.includes("Ban")) {
+      function ok(value) {
+        return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Ban") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
@@ -1491,74 +1696,76 @@ const BlacklistBasedSet = (props) => {
         if (!available.includes("Warn")) {
           available.push("Warn")
         }
-        
+
       }
     }
-  
-      categoryInfo[index].availableOptions = available
 
-      setCategories([...categoryInfo])
-  
-  
+    if (reason === 'clear') {
+      available = ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban', 'Ban']
+    }
+
+    
+
+    categoryInfo[index].availableOptions = punishmentSort(available)
+
+    setCategories([...categoryInfo])
+
+
   }
-  
 
   const createCategory = () => {
     let currentCats = categories
-    currentCats.push({title: 'New category', punishments: [], availableOptions:['Delete message','Mute','Warn','Kick','Tempban','Ban'], words: {}, points: 0, timeval: 0, timeunit: 'minutes', whitelistedRoles: {}, whitelistedChannels: {}, duration: 0})
-    setCategories([...currentCats])  }
-  
+    currentCats.push({ title: 'New category', punishments: [], availableOptions: ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban', 'Ban'], words: [], points: 0, timeval: 0, timeunit: 'minutes', whitelistedRoles: {}, whitelistedChannels: {}, duration: 0, substring: 0})
+    setCategories([...currentCats])
+  }
+
   const onWordsChange = (event, values, reason, detail) => {
-    const target = event.target
-    const grid = target.parentElement.parentElement.parentElement.parentElement.parentElement
-    const wordInputs =  Array.from(target.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('inputWords'))
-    const index = wordInputs.indexOf(target.parentElement.parentElement.parentElement)
+    const index = getIndex(event, "inputWords").index
+    
+    
     var addedWords = categories[index].words;
-    const checked = Array.from(grid.getElementsByClassName('searchForSubs'))[index].checked
-    var toExact = ""
+    
     const categoryInfo = categories
     if ((reason === 'remove-option')) {
-      delete addedWords[String(detail.option)]
+      const ind = addedWords.indexOf(detail.option)
+      addedWords.splice(ind, 1)
     }
     else if (reason === 'clear') {
-      addedWords = {}
+      addedWords = []
     }
     else {
-    if (checked){
-      toExact = "Substring"
-    } else {
-      toExact = "NoSubstring"
+      addedWords.push(detail.option)
 
-      
     }
-    addedWords[String(Array.from(values)[Array.from(values).length - 1])] = toExact
-  
-  }
-  categoryInfo[index].words = addedWords
-  setCategories([...categoryInfo])
+    categoryInfo[index].words = addedWords
+    setCategories([...categoryInfo])
   }
 
   const onTimevalChange = (event) => {
     let categoryInfo = categories
     const target = event.target
     const timeValInputs = Array.from(target.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('duration'))
-    const index = timeValInputs.indexOf(target.parentElement.parentElement)
+    const index = timeValInputs.indexOf(target.parentElement)
     const timeunit = target.parentElement.children[1].value
-    
+
+    if (target.value.length == 0) {
+      target.value = 0
+    }
+
     categoryInfo[index].timeval = parseInt(target.value)
     if (timeunit == 'seconds') {
       categoryInfo[index].duration = parseInt(target.value)
     }
     if (timeunit == 'minutes') {
-      categoryInfo[index].duration = 60*parseInt(target.value)
+      categoryInfo[index].duration = 60 * parseInt(target.value)
     }
     if (timeunit == 'hours') {
-      categoryInfo[index].duration = 3600*parseInt(target.value)
+      categoryInfo[index].duration = 3600 * parseInt(target.value)
     }
     if (timeunit == 'days') {
-      categoryInfo[index].duration = 86400*parseInt(target.value)
+      categoryInfo[index].duration = 86400 * parseInt(target.value)
     }
-    
+
     setCategories([...categoryInfo])
   }
 
@@ -1566,20 +1773,21 @@ const BlacklistBasedSet = (props) => {
     let categoryInfo = categories
     const target = event.target
     const timeUnitInputs = Array.from(target.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('duration'))
-    const index = timeUnitInputs.indexOf(target.parentElement.parentElement)
+    const index = timeUnitInputs.indexOf(target.parentElement)
     categoryInfo[index].timeunit = target.value
-    const timeval = target.parentElement.children[0].value    
+    const timeval = target.parentElement.children[0].value
+    const timeunit = target.value
     if (timeunit == 'seconds') {
       categoryInfo[index].duration = timeval
     }
     if (timeunit == 'minutes') {
-      categoryInfo[index].duration = 60*timeval
+      categoryInfo[index].duration = 60 * timeval
     }
     if (timeunit == 'hours') {
-      categoryInfo[index].duration = 3600*timeval
+      categoryInfo[index].duration = 3600 * timeval
     }
     if (timeunit == 'days') {
-      categoryInfo[index].duration = 86400*timeval
+      categoryInfo[index].duration = 86400 * timeval
     }
     setCategories([...categoryInfo])
   }
@@ -1592,52 +1800,57 @@ const BlacklistBasedSet = (props) => {
 
   const onPointChange = (e) => {
     let categoryInfo = categories
-    categoryInfo[Array.from(e.target.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('warnpoints')).indexOf(e.target.parentElement.parentElement)].points = parseInt(e.target.value)
-    
+    if (e.target.value.length == 0) {
+      e.target.value = 0
+      categoryInfo[Array.from(e.target.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('warnpoints')).indexOf(e.target.parentElement)].points = 0
+    } else {
+      categoryInfo[Array.from(e.target.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('warnpoints')).indexOf(e.target.parentElement)].points = parseInt(e.target.value) 
+    }
+
     setCategories([...categoryInfo])
   }
 
   const getIndex = (e, className) => {
-    if (e.target.tagName=='LI') {
-      console.log(parseInt(e.target.parentElement.className.slice(42)))
-      return {index:parseInt(e.target.parentElement.className.slice(42)), whole: e.target.parentElement.parentElement.parentElement.parentElement}
-    } 
-    if (e.target.tagName=='svg' && e.target.className.animVal=='MuiSvgIcon-root MuiSvgIcon-fontSizeSmall') {
-      const target = e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement
-      const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-      return {index:index, whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement}
+    if (e.target.tagName == 'LI') {
+      
+      return { index: parseInt(e.target.parentElement.className.slice(42)), whole: e.target.parentElement.parentElement.parentElement.parentElement }
     }
-    if (e.target.tagName=='svg' && e.target.className.animVal=='MuiSvgIcon-root MuiChip-deleteIcon') {
+    if (e.target.tagName == 'svg' && e.target.className.animVal == 'MuiSvgIcon-root MuiSvgIcon-fontSizeSmall') {
+      const target = e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement
+      const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+      return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement }
+    }
+    if (e.target.tagName == 'svg' && e.target.className.animVal == 'MuiSvgIcon-root MuiChip-deleteIcon') {
       const target = e.target.parentElement.parentElement.parentElement.parentElement
-      const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-      return {index:index,whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement}
+      const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+      return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement }
 
     }
-    if (e.target.tagName=='path') {
+    if (e.target.tagName == 'path') {
       if (e.target.outerHTML == '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path>') {
         const target = e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement
-        const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-        return {index:index,whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement}
+        const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+        return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement }
 
       }
       if (e.target.outerHTML == '<path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"></path>') {
         const target = e.target.parentElement.parentElement.parentElement.parentElement.parentElement
-        const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-        return {index:index, whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement}
+        const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+        return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement }
 
       }
 
     }
-    if (e.target.tagName=='BUTTON') {
+    if (e.target.tagName == 'BUTTON') {
       const target = e.target.parentElement.parentElement.parentElement.parentElement
-      const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-      return {index:index,whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement}
+      const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+      return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement }
 
     }
-    if (e.target.tagName=='INPUT'){
+    if (e.target.tagName == 'INPUT') {
       const target = e.target.parentElement.parentElement.parentElement
-      const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-      return {index:index,whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement}
+      const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+      return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement }
 
     }
 
@@ -1646,24 +1859,24 @@ const BlacklistBasedSet = (props) => {
   const channelWhitelistChange = (e, values) => {
     const index = getIndex(e, 'channelWhitelist').index
     let channels = {}
-    values.forEach(value => {channels[value] = props.channelobj[value]})
+    values.forEach(value => { channels[value] = props.channelobj[value] })
     let categoryInfo = categories
     categoryInfo[index].whitelistedChannels = channels
     setCategories([...categoryInfo])
   }
-    
+
   const roleWhitelistChange = (e, values) => {
     const index = getIndex(e, 'roleWhitelist').index
     let roles = {}
-    values.forEach(value => {roles[value] = props.roleobj[value]})
+    values.forEach(value => { roles[value] = props.roleobj[value] })
     let categoryInfo = categories
     categoryInfo[index].whitelistedRoles = roles
     setCategories([...categoryInfo])
   }
 
   const saveData = () => {
-    let logData = {guild: props.server, table: props.table, type:'blacklist', categories: categories}
-    fetch('/api/send-automod', {
+    let logData = { guild: props.server, table: props.table, type: 'blacklist', categories: categories }
+    fetch('/api/send-msgautomod', {
       method: 'POST',
       body: JSON.stringify(logData),
       headers: {
@@ -1672,10 +1885,18 @@ const BlacklistBasedSet = (props) => {
     })
   }
 
+  const changePunishSize = () => {
+    const finders = Array.from(wholeThing.current.getElementsByClassName("punishments"))
+    finders.forEach(e => {e.style.height = `${e.children[0].offsetHeight}px`})
+    const titles = Array.from(wholeThing.current.getElementsByClassName("title"))
+    titles.forEach(e => {const w = e.parentElement.parentElement.parentElement.parentElement.parentElement.offsetWidth; if (w <= 282) {e.style.width = '100%'} else {e.style.width = '200px'}})
+  }
+
+
   useEffect(() => {
+    let categoryInfo = categories
     categories.forEach(category => {
       const punishments = category.punishments
-      let categoryInfo = categories
       if (punishments.includes('Mute')) {
         categoryInfo[categories.indexOf(category)].availableOptions = ['Delete message', 'Mute', 'Warn']
       }
@@ -1693,12 +1914,32 @@ const BlacklistBasedSet = (props) => {
         Array.from(wholeThing.current.getElementsByClassName('duration'))[categories.indexOf(category)].style.display = 'block'
       }
       if (category.punishments.includes('Warn')) {
+        categoryInfo[categories.indexOf(category)].availableOptions = ['Delete message', 'Mute', 'Warn']
         Array.from(wholeThing.current.getElementsByClassName('warnpoints'))[categories.indexOf(category)].style.display = 'block'
       }
-      setCategories([...categoryInfo])
-    })
+      let chwl = {}
+      let rlwl = {}
 
-  },[])
+      let ch_whitelists = Object.keys(props.channelobj).filter(f => Object.values(category.whitelistedChannels).includes(props.channelobj[f]))
+      let rl_whitelists = Object.keys(props.roleobj).filter(f => Object.values(category.whitelistedRoles).includes(props.roleobj[f]))
+      ch_whitelists.forEach(ch => chwl[ch] = props.channelobj[ch])
+      rl_whitelists.forEach(rl => rlwl[rl] = props.roleobj[rl])
+      category.whitelistedChannels = chwl
+      category.whitelistedRoles = rlwl
+
+      if (props.offtype == 'Bad Words') {
+        Array.from(wholeThing.current.getElementsByClassName('searchForSubs'))[categories.indexOf(category)].checked = category.substring == 1 || category.substring == true
+        }
+  
+
+    })
+    setCategories([...categoryInfo])
+
+    
+    changePunishSize()
+    const finders = Array.from(wholeThing.current.getElementsByClassName("punishments"))
+    finders.forEach(f => {const s = new ResizeSensor(f.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement, changePunishSize)})
+  }, [])
 
   const deleteRule = (e) => {
     if (e.target.tagName == 'path') {
@@ -1709,17 +1950,17 @@ const BlacklistBasedSet = (props) => {
       const categoryInfo = categories
       categoryInfo.splice(index, 1)
       setCategories([...categoryInfo])
-  }
-  if (e.target.tagName == 'svg') {
-      const target = e.target.parentElement.parentElement            
+    }
+    if (e.target.tagName == 'svg') {
+      const target = e.target.parentElement.parentElement
       const whole = target.parentElement.parentElement
       const deletes = Array.from(whole.getElementsByClassName('delete'))
       const index = deletes.indexOf(target)
       const categoryInfo = categories
       categoryInfo.splice(index, 1)
       setCategories([...categoryInfo])
-  }
-  if (e.target.tagName == 'SPAN') {
+    }
+    if (e.target.tagName == 'SPAN') {
       const target = e.target
       const whole = target.parentElement.parentElement
       const deletes = Array.from(whole.getElementsByClassName('delete'))
@@ -1727,99 +1968,172 @@ const BlacklistBasedSet = (props) => {
       const categoryInfo = categories
       categoryInfo.splice(index, 1)
       setCategories([...categoryInfo])
-  } 
+    }
   }
+
+  const onSubstringChange = (e) => {
+    const index = Array.from(wholeThing.current.getElementsByClassName('searchForSubs')).indexOf(e.target)
+    let categoryInfo = categories
+    let bool = 0
+    if (e.target.checked) {
+      bool++
+    }
+    categoryInfo[index].substring = bool
+    setCategories([...categoryInfo])
+
+  }
+
+  const openFileImport = (e) => {
+    let target;
+    if (e.target.tagName == "path") {
+      target = e.target.parentElement.parentElement.parentElement
+    }
+    if (e.target.tagName == "svg" || e.target.tagName == "P") {
+      target = e.target.parentElement.parentElement
+    }
+    if (e.target.tagName == "SPAN") {
+      target = e.target.parentElement
+    }
+    if (e.target.tagName == "BUTTON") {
+      target = e.target
+    }
+
+    const wholeGrid = target.parentElement.parentElement.parentElement.parentElement
+    
+    const index = Array.from(wholeGrid.getElementsByClassName("wordImportButton")).indexOf(target)
+    
+    wholeGrid.getElementsByClassName("wordImport")[index].click()
+    
+    
+  }
+
+  const onFileInput = (e) => {
+    const file = e.target.files[0]
+    const wholeGrid = e.target.parentElement.parentElement.parentElement.parentElement
+    const index = Array.from(wholeGrid.getElementsByClassName("wordImport")).indexOf(e.target)
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const categoryInfo = categories
+      categoryInfo[index].words = categoryInfo[index].words.concat(reader.result.split("\n").filter(n => n.length > 0))
+      setCategories([...categoryInfo])
+    };
+    reader.readAsText(file)
+    e.target.value = ''; 
+  }
+
 
   let subString;
   if (props.offtype == 'Bad Words') {
-    subString = <div style={{width: "100%", position: "relative", height: 24, top: 10}}>
-    <input className={'searchForSubs'} type="checkbox" style={{width: 18, height: 18, position: "absolute", left: -5, top: -1 }}/>
-    <Typography style={{fontSize: 16, width: "calc(100% - 30px)%", display: "flex" , position: "absolute", left: 25, top: 0}}>Search for substrings</Typography>
-  </div>
+    subString =         <Tooltip title={<span style={{ fontSize: 13, height: 18 }}>{substringExplain}</span>} enterTouchDelay={0} placement="left" PopperProps={{style: {marginLeft: -56}}}>
+    <div style={{ width: "100%", position: "relative", height: 24, top: 10 }}>
+      <input className={'searchForSubs'} type="checkbox" style={{ width: 18, height: 18, position: "absolute", left: -5, top: -1 }} onInput={onSubstringChange}/>
+      <Typography style={{ fontSize: 16, width: "calc(100% - 30px)%", display: "flex", position: "absolute", left: 25, top: 0 }}>Search for substrings</Typography>
+    </div></Tooltip>
   } else {
     subString = <></>
   }
 
-
   let categorySection;
   if (categories.length > 0) {
-    categorySection = categories.map((category)=> {
-      return <div className={'category'}>
-      <TextField style={{width: 200}} className={'title'} defaultValue={category.title} onInput={setTitle}/><IconButton onClick={deleteRule} className={`delete ${categories.indexOf(category)}`} style={{color: 'red', height: 35, width: 35, position: 'relative', top: 'calc(100% - 17.5px)'}} component="span"> <CloseIcon /> </IconButton>
-      <footer style={{padding: "10px 0"}}></footer>
-      <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Words</Typography>
-      <Autocomplete className={'inputWords'} multiple onChange={onWordsChange} value={Object.keys(category.words)} freeSolo options={[]} renderInput={(params) => <TextField {...params} placeholder={props.placehold} />}/>
-      {subString}
-      <footer style={{padding: "10px 0"}}></footer>
-      <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Punishments</Typography>
-      <Autocomplete className={'punishments'} onChange={onPunishTagsChange} value={category.punishments} multiple style={{height: 32, width:"100%"}} options={category.availableOptions} ListboxProps={{className: `MuiAutocomplete-listbox punishAutocomplete${categories.indexOf(category)}`}}  renderInput={(params) => <TextField {...params} placeholder={props.placeholder} />} />
-      <div className={'duration'} style={{display: 'none'}}>
-      <footer style={{padding: "10px 0"}}></footer>
-      <Grid xs={12} style={{position: "relative"}}>
-      <input defaultValue={category.timeval} onInput={onTimevalChange} style={{height: 30, fontSize: 18, width: `calc(100% - 110px)`}} type="number"/><select onChange={onTimeunitChange} defaultValue={category.timeunit} style={{width: 100, position: "absolute", fontSize: 16,height: 30,right: 0}}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
-      </Grid>
-    </div>
-    <div style={{display: "none"}} className={'warnpoints'}>
-    <footer style={{padding: "10px 0"}}></footer>
-    <Grid xs={12} style={{position: "relative"}}>
-    <input onInput={onPointChange} defaultValue={category.points} style={{height: 30, fontSize: 18, width: `calc(100% - 80px)`}} type="number"/><Typography style={{width:80,textAlign: "right", fontSize: 16,  position: "absolute", right: 0, top: "calc(50% - 12px)"}}>Points</Typography>
-    </Grid>
-    </div>
-    <Gap></Gap>
-      <Grid xs={12} style={{position: "relative"}}>
-      <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted channels</Typography>
-      <Autocomplete className={'channelWhitelist'} multiple options={props.channels} onChange={channelWhitelistChange} renderInput={(params) => <TextField {...params}/>} value={Object.keys(category.whitelistedChannels)} ListboxProps={{className: `MuiAutocomplete-listbox punishAutocomplete${categories.indexOf(category)}`}}/>
-  </Grid>
-  <Gap/>
-  <Grid xs={12} style={{position: "relative"}}>
-      <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted roles</Typography>
-      <Autocomplete value={Object.keys(category.whitelistedRoles)} multiple className={'roleWhitelist'} onChange={roleWhitelistChange}options={props.roles} renderInput={(params) => <TextField {...params}/>} ListboxProps={{className: `MuiAutocomplete-listbox punishAutocomplete${categories.indexOf(category)}`}}/>
-  </Grid>
-  <footer style={{padding: "10px 0"}}></footer>
-  <footer style={{padding: "10px 0"}}></footer>
+    categorySection = categories.map((category) => {
+      const whitelistCh = Object.keys(props.channelobj).filter(f => Object.values(category.whitelistedChannels).includes(props.channelobj[f]))
+      return <div key={categories.indexOf(category)} className={'category'}>
+        <TextField className={'title'} value={category.title} onInput={setTitle} /><IconButton onClick={deleteRule} className={`delete ${categories.indexOf(category)}`} style={{ color: 'red', height: 35, width: 35, position: 'relative', top: 'calc(100% - 17.5px)' }} component="span"> <CloseIcon /> </IconButton>
+        <div style={{display: "inline-block"}} >
+        <Tooltip title={<span style={{ fontSize: 13, height: 18 }}>{`Only accepts txt files. ${props.offtype == "Bad Words" ? "Words" : "Websites"} should be separated using newlines. Imported words are added to the existing list.`}</span>} enterTouchDelay={0} placement="left" PopperProps={{style: {marginLeft: 0}}}>
+        <div >
+        <input className="wordImport" type="file" style={{display: "none"}} accept=".txt" onInput={onFileInput}/>
+        <Button className="wordImportButton" onClick={openFileImport} style={{paddingLeft: 10, paddingRight: 10, height: 36, fontSize: 15, textTransform: "initial", backgroundColor: 'white', color: "black"}}>
+            <PublishIcon/>
+
+            <Typography style={{paddingLeft: 5}}>{props.offtype == "Bad Words" ? "Import words" : "Import websites"}</Typography>
+        </Button>
+        </div>
+        </Tooltip>
+        </div>
+        <footer style={{ padding: "10px 0" }}></footer>
+        <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Words</Typography>
+        <Autocomplete className={'inputWords'} multiple onChange={onWordsChange} value={category.words} freeSolo options={[]} renderInput={(params) => <TextField {...params} placeholder={props.placehold} />} />
+        {subString}
+        <footer style={{ padding: "10px 0" }}></footer>
+        <Grid container>
+        <Grid item xs={12}>
+        <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Punishments</Typography>
+        </Grid>
+        <Grid item xs={12}>
+        <Autocomplete className={'punishments'} onChange={onPunishTagsChange} value={category.punishments} multiple style={{ height: 32, width: "100%" }} options={category.availableOptions} ListboxProps={{ className: `MuiAutocomplete-listbox punishAutocomplete${categories.indexOf(category)}` }} renderInput={(params) => <TextField {...params} placeholder={props.placeholder} />} />
+        </Grid>
+        </Grid>
+        <Grid xs={12} style={{ position: "relative" }}>
+        <div className={'duration'} style={{ display: 'none' }}>
+          <footer style={{ padding: "10px 0" }}></footer>
+          <input defaultValue={category.timeval} onInput={onTimevalChange} style={{ height: 30, fontSize: 18, width: `calc(100% - 110px)` }} type="number" /><select onChange={onTimeunitChange} defaultValue={category.timeunit} style={{ width: 100, position: "absolute", fontSize: 16, height: 30, right: 0 }}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
+        </div>
+        <div style={{ display: "none" , position: "relative"}} className={'warnpoints'}>
+          <footer style={{ padding: "10px 0" }}></footer>
+            <input onInput={onPointChange} defaultValue={category.points} style={{ height: 30, fontSize: 18, width: `calc(100% - 80px)` }} type="number" /><Typography style={{ width: 80, textAlign: "right", fontSize: 16, position: "absolute", right: 0, top: "26px" }}>Points</Typography>
+        </div>
+        </Grid>
+        <Gap></Gap>
+        <Grid xs={12} style={{ position: "relative" }}>
+          <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted channels</Typography>
+          <Autocomplete className={'channelWhitelist'} multiple options={props.channels} onChange={channelWhitelistChange} renderInput={(params) => <TextField {...params} />} value={Object.keys(category.whitelistedChannels)} ListboxProps={{ className: `MuiAutocomplete-listbox punishAutocomplete${categories.indexOf(category)}` }} />
+        </Grid>
+        <Gap />
+        <Grid xs={12} style={{ position: "relative" }}>
+          <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted roles</Typography>
+          <Autocomplete value={Object.keys(category.whitelistedRoles)} multiple className={'roleWhitelist'} onChange={roleWhitelistChange} options={props.roles} renderInput={(params) => <TextField {...params} />} ListboxProps={{ className: `MuiAutocomplete-listbox punishAutocomplete${categories.indexOf(category)}` }} />
+        </Grid>
+        <footer style={{ padding: "10px 0" }}></footer>
+        <footer style={{ padding: "10px 0" }}></footer>
       </div>
-      })
+    })
   } else {
-    categorySection = <Typography style={{paddingRight: 5, fontSize: 16}}>There are no categories, click "CREATE NEW CATEGORY" to add one!</Typography>
+    categorySection = <Typography style={{ paddingRight: 5, fontSize: 16 }}>{newC}</Typography>
   }
 
-  
 
-        return ( <Grid ref={wholeThing} item xs={12} md={6}>
-      <Card style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-          <CardContent style={{flexGrow: 1, left:15, position: "relative", width: "calc(100% - 30px)"}}>
-              <Typography style={{position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)"}}>{props.offtype}</Typography>
-              <footer style={{padding: "5px 0"}}></footer>
-              <Grid xs={12} style={{width: "calc(100% - 20px)", position: 'relative', left: 10}}>
-              <Button onClick={() => {createCategory()}} style={{ backgroundColor: "lightgray"}}><AddIcon style={{color: "black", fontSize: 14, position: "relative", left: -3, }}/><Typography style={{color: "black", fontSize: 14}}>CREATE NEW CATEGORY</Typography></Button>
-              <footer style={{padding: "10px 0"}}></footer>
-              <Divider style={{opacity: 0.4, position: "relative", top: 0, width: "100%",}}></Divider>
-              <footer style={{padding: "5px 0"}}></footer>
-              <Typography style={{fontSize: 18, width: "100%", display: "block"}}>{props.categoryName}</Typography>
-              <footer style={{padding: "10px 0"}}></footer>
-              {categorySection}
-              <Gap />
-              
-              
-              
-              </Grid>
-  
-          </CardContent>
-  
-          <footer style={{padding: "20px 0"}}>
-          <Button onClick={saveData} style={{backgroundColor:"cornflowerblue", padding: "5px", position: "relative", left: 40, top:-9}}><Typography style={{fontSize: 18, textTransform: "initial", color: "white"}}>Save</Typography></Button>
-          </footer>
-  
-      </Card>
-  </Grid> )
-  
-      
-   
-    }
+
+  return (<Grid ref={wholeThing} item xs={12} md={6}>
+    <Card style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CardContent style={{ flexGrow: 1, left: 15, position: "relative", width: "calc(100% - 30px)" }}>
+        <Typography style={{ position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)" }}>{props.offtype}</Typography>
+        <footer style={{ padding: "5px 0" }}></footer>
+        <Grid xs={12} style={{ width: "calc(100% - 20px)", position: 'relative', left: 10 }}>
+          <Button onClick={() => { createCategory() }} style={{ backgroundColor: "lightgray" }}><AddIcon style={{ color: "black", fontSize: 14, position: "relative", left: -3, }} /><Typography style={{ color: "black", fontSize: 14 }}>CREATE NEW CATEGORY</Typography></Button>
+          <footer style={{ padding: "10px 0" }}></footer>
+          <Divider style={{ opacity: 0.4, position: "relative", top: 0, width: "100%", }}></Divider>
+          <footer style={{ padding: "5px 0" }}></footer>
+          <Typography style={{ fontSize: 18, width: "100%", display: "block" }}>{props.categoryName}</Typography>
+          <footer style={{ padding: "10px 0" }}></footer>
+          {categorySection}
+          <Gap />
+
+
+
+        </Grid>
+
+      </CardContent>
+
+      <footer style={{ padding: "20px 0" }}>
+        <Button onClick={saveData} style={{ backgroundColor: "cornflowerblue", padding: "5px", position: "relative", left: 40, top: -9 }}><Typography style={{ fontSize: 18, textTransform: "initial", color: "white" }}>Save</Typography></Button>
+      </footer>
+
+    </Card>
+  </Grid>)
+
+
+
+}
 
 const CatProfileBasedSet = (props) => {
+  
+
   const [categories, setCategories] = useState(props.categories)
   const onPunishTagsChange = (event, values, reason, detail) => {
+    changePunishSize()
+
     let categoryInfo = categories
     const index = getIndex(event, 'punishments').index
     const whole = getIndex(event, 'punishments').whole
@@ -1829,7 +2143,7 @@ const CatProfileBasedSet = (props) => {
     var available = categories[index].availableOptions;
     categoryInfo[index].punishments = values
 
-  
+
     if (values.includes('Mute') || values.includes('Tempban')) {
       durationNode.style.display = 'block'
     } else {
@@ -1840,21 +2154,21 @@ const CatProfileBasedSet = (props) => {
     } else {
       pointNode.style.display = 'none'
     }
-  
-      var chosenOptions = Array.from(values)
-      
-      if (chosenOptions.includes("Mute")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else{
-        if(reason === 'remove-option' && detail.option == "Mute") {
+
+    var chosenOptions = Array.from(values)
+
+    if (chosenOptions.includes("Mute")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Mute") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
@@ -1863,19 +2177,19 @@ const CatProfileBasedSet = (props) => {
         }
       }
     }
-  
-      if (chosenOptions.includes("Warn")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(reason === 'remove-option' && detail.option == "Warn") {
+
+    if (chosenOptions.includes("Warn")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Warn") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
@@ -1884,40 +2198,40 @@ const CatProfileBasedSet = (props) => {
         }
       }
     }
-  
-      if (chosenOptions.includes("Kick")) {
-        function ok(value) {
-          return value != "Mute" && value != "Ban" && value != "Tempban"
-        }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(reason === 'remove-option' && detail.option == "Kick") {
+
+    if (chosenOptions.includes("Kick")) {
+      function ok(value) {
+        return value != "Mute" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Kick") {
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
-        
+
         if (!available.includes("Tempban")) {
           available.push("Tempban")
         }
         if (!available.includes("Ban")) {
           available.push("Ban")
-        }    
+        }
       }
     }
-  
-      if (chosenOptions.includes("Tempban")) {
-        function ok(value) {
-          return value != "Kick" && value != "Ban" && value != "Mute"
-        }
-        const temp = available.filter(ok)
-        available = temp
-      } else {
-        if(reason === 'remove-option' && detail.option == "Tempban") {
+
+    if (chosenOptions.includes("Tempban")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Mute"
+      }
+      const temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Tempban") {
         if (!available.includes("Kick")) {
           available.push("Kick")
         }
-        
+
         if (!available.includes("Mute")) {
           available.push("Mute")
         }
@@ -1926,54 +2240,62 @@ const CatProfileBasedSet = (props) => {
         }
       }
     }
-  
-      if (chosenOptions.includes("Ban")) {
-        function ok(value) {
-          return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
+
+    if (chosenOptions.includes("Ban")) {
+      function ok(value) {
+        return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Ban") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
         }
-        var temp = available.filter(ok)
-        available = temp
-      } else {
-        if(((reason === 'remove-option'||reason === 'clear')||reason === 'clear') && detail.option == "Ban") {
-          if (!available.includes("Kick")) {
-            available.push("Kick")
-          }
-          
-          if (!available.includes("Mute")) {
-            available.push("Mute")
-          }
-          if (!available.includes("Ban")) {
-            available.push("Ban")
-          }
-          if (!available.includes("Tempban")) {
-            available.push("Tempban")
-          }
-          if (!available.includes("Warn")) {
-            available.push("Warn")
-          }
-          
+
+        if (!available.includes("Mute")) {
+          available.push("Mute")
         }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Warn")) {
+          available.push("Warn")
+        }
+
+      }
     }
 
     if (reason === 'clear') {
-      available = ['Delete message','Mute','Warn','Kick','Tempban','Ban']
+      available = ['Delete message', 'Mute', 'Warn', 'Kick', 'Tempban', 'Ban']
     }
 
 
-  
-      categoryInfo[index].availableOptions = available
 
-      setCategories([...categoryInfo])
-  
-  
+    categoryInfo[index].availableOptions = punishmentSort(available)
+
+    setCategories([...categoryInfo])
+
+
+  }
+
+  const changePunishSize = () => {
+    const finders = Array.from(wholeThing.current.getElementsByClassName("punishments"))
+    finders.forEach(e => {e.style.height = `${e.children[0].offsetHeight}px`})
+    const titles = Array.from(wholeThing.current.getElementsByClassName("title"))
+    titles.forEach(e => {const w = e.parentElement.parentElement.parentElement.parentElement.parentElement.offsetWidth; if (w <= 282) {e.style.width = '100%'} else {e.style.width = '200px'}})
   }
 
   const wholeThing = React.useRef()
-  
+
   useEffect(() => {
+    let categoryInfo = categories
+
     categories.forEach(category => {
       const punishments = category.punishments
-      let categoryInfo = categories
       if (punishments.includes('Mute')) {
         categoryInfo[categories.indexOf(category)].availableOptions = ['Mute', 'Warn']
       }
@@ -1991,67 +2313,78 @@ const CatProfileBasedSet = (props) => {
         Array.from(wholeThing.current.getElementsByClassName('duration'))[categories.indexOf(category)].style.display = 'block'
       }
       if (category.punishments.includes('Warn')) {
+        categoryInfo[categories.indexOf(category)].availableOptions = ['Delete message', 'Mute', 'Warn']
         Array.from(wholeThing.current.getElementsByClassName('warnpoints'))[categories.indexOf(category)].style.display = 'block'
       }
-      setCategories([...categoryInfo])
+
+      let rlwl = {}
+
+      let rl_whitelists = Object.keys(props.roleobj).filter(f => Object.values(category.whitelistedRoles).includes(props.roleobj[f]))
+      rl_whitelists.forEach(rl => rlwl[rl] = props.roleobj[rl])
+      category.whitelistedRoles = rlwl
+      Array.from(wholeThing.current.getElementsByClassName('searchForSubs'))[categories.indexOf(category)].checked = category.substring == 1 || category.substring == true
     })
 
-  },[])
+    setCategories([...categoryInfo])
+
+    changePunishSize()
+    const finders = Array.from(wholeThing.current.getElementsByClassName("punishments"))
+    finders.forEach(f => {const s = new ResizeSensor(f.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement, changePunishSize)})
+  }, [])
 
   const createCategory = () => {
     let currentCats = categories
-    currentCats.push({title: 'New category', punishments: [], availableOptions:['Mute','Warn','Kick','Tempban','Ban'], words: {}, points: 0, timeval: 0, timeunit: 'minutes', whitelistedRoles: {}, duration: 0})
-    setCategories([...currentCats])  }
-  
+    currentCats.push({ title: 'New category', punishments: [], availableOptions: ['Mute', 'Warn', 'Kick', 'Tempban', 'Ban'], words: [], points: 0, timeval: 0, timeunit: 'minutes', whitelistedRoles: {}, duration: 0, substring: 0 })
+    setCategories([...currentCats])
+  }
+
   const onWordsChange = (event, values, reason, detail) => {
-    const index = getIndex(event, 'inputWords').index
+    const index = getIndex(event, "inputWords").index
+    
+    
     var addedWords = categories[index].words;
-    const checked = Array.from(wholeThing.current.getElementsByClassName('searchForSubs'))[index].checked
-    var toExact = ""
+    
     const categoryInfo = categories
     if ((reason === 'remove-option')) {
-      delete addedWords[String(detail.option)]
+      const ind = addedWords.indexOf(detail.option)
+      addedWords.splice(ind, 1)
     }
     else if (reason === 'clear') {
-      addedWords = {}
+      addedWords = []
     }
     else {
-    if (checked){
-      toExact = "Substring"
-    } else {
-      toExact = "NoSubstring"
+      addedWords.push(detail.option)
 
-      
     }
-    console.log(categories)
-    addedWords[String(Array.from(values)[Array.from(values).length - 1])] = toExact
-  
-  }
-  categoryInfo[index].words = addedWords
-  setCategories([...categoryInfo])
+    categoryInfo[index].words = addedWords
+    setCategories([...categoryInfo])
   }
 
   const onTimevalChange = (event) => {
     let categoryInfo = categories
     const target = event.target
     const timeValInputs = Array.from(target.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('duration'))
-    const index = timeValInputs.indexOf(target.parentElement.parentElement)
+    const index = timeValInputs.indexOf(target.parentElement)
     const timeunit = target.parentElement.children[1].value
-    
+
+    if (target.value.length == 0) {
+      target.value = 0
+    }
+
     categoryInfo[index].timeval = parseInt(target.value)
     if (timeunit == 'seconds') {
       categoryInfo[index].duration = parseInt(target.value)
     }
     if (timeunit == 'minutes') {
-      categoryInfo[index].duration = 60*parseInt(target.value)
+      categoryInfo[index].duration = 60 * parseInt(target.value)
     }
     if (timeunit == 'hours') {
-      categoryInfo[index].duration = 3600*parseInt(target.value)
+      categoryInfo[index].duration = 3600 * parseInt(target.value)
     }
     if (timeunit == 'days') {
-      categoryInfo[index].duration = 86400*parseInt(target.value)
+      categoryInfo[index].duration = 86400 * parseInt(target.value)
     }
-    
+
     setCategories([...categoryInfo])
   }
 
@@ -2059,20 +2392,22 @@ const CatProfileBasedSet = (props) => {
     let categoryInfo = categories
     const target = event.target
     const timeUnitInputs = Array.from(target.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('duration'))
-    const index = timeUnitInputs.indexOf(target.parentElement.parentElement)
+    const index = timeUnitInputs.indexOf(target.parentElement)
     categoryInfo[index].timeunit = target.value
-    const timeval = target.parentElement.children[0].value    
+    const timeval = target.parentElement.children[0].value
+    const timeunit = target.value
+    
     if (timeunit == 'seconds') {
       categoryInfo[index].duration = timeval
     }
     if (timeunit == 'minutes') {
-      categoryInfo[index].duration = 60*timeval
+      categoryInfo[index].duration = 60 * timeval
     }
     if (timeunit == 'hours') {
-      categoryInfo[index].duration = 3600*timeval
+      categoryInfo[index].duration = 3600 * timeval
     }
     if (timeunit == 'days') {
-      categoryInfo[index].duration = 86400*timeval
+      categoryInfo[index].duration = 86400 * timeval
     }
     setCategories([...categoryInfo])
   }
@@ -2085,70 +2420,73 @@ const CatProfileBasedSet = (props) => {
 
   const onPointChange = (e) => {
     let categoryInfo = categories
-    categoryInfo[Array.from(e.target.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('warnpoints')).indexOf(e.target.parentElement.parentElement)].points = parseInt(e.target.value)
-    
+    if (e.target.value.length == 0) {
+      e.target.value = 0
+      categoryInfo[Array.from(e.target.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('warnpoints')).indexOf(e.target.parentElement)].points = 0
+    } else {
+      categoryInfo[Array.from(e.target.parentElement.parentElement.parentElement.parentElement.getElementsByClassName('warnpoints')).indexOf(e.target.parentElement)].points = parseInt(e.target.value) 
+    }
+
     setCategories([...categoryInfo])
   }
 
   const getIndex = (e, className) => {
-    if (e.target.tagName=='LI') {
-      return {index:parseInt(e.target.parentElement.className.slice(42,)), whole: e.target.parentElement.parentElement.parentElement.parentElement}
-    } 
-    if (e.target.tagName=='svg' && e.target.className.animVal=='MuiSvgIcon-root MuiSvgIcon-fontSizeSmall') {
-      const target = e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement
-      const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-      return {index:index, whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement}
+    if (e.target.tagName == 'LI') {
+      return { index: parseInt(e.target.parentElement.className.slice(42,)), whole: e.target.parentElement.parentElement.parentElement.parentElement }
     }
-    if (e.target.tagName=='svg' && e.target.className.animVal=='MuiSvgIcon-root MuiChip-deleteIcon') {
+    if (e.target.tagName == 'svg' && e.target.className.animVal == 'MuiSvgIcon-root MuiSvgIcon-fontSizeSmall') {
+      const target = e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement
+      const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+      return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement }
+    }
+    if (e.target.tagName == 'svg' && e.target.className.animVal == 'MuiSvgIcon-root MuiChip-deleteIcon') {
       const target = e.target.parentElement.parentElement.parentElement.parentElement
-      const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-      return {index:index,whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement}
+      const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+      return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement }
 
     }
-    if (e.target.tagName=='path') {
+    if (e.target.tagName == 'path') {
       if (e.target.outerHTML == '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path>') {
         const target = e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement
-        const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-        return {index:index,whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement}
+        const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+        return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement }
 
       }
       if (e.target.outerHTML == '<path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"></path>') {
         const target = e.target.parentElement.parentElement.parentElement.parentElement.parentElement
         const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-        return {index:index, whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement}
+        return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement }
 
       }
 
     }
-    if (e.target.tagName=='BUTTON') {
+    if (e.target.tagName == 'BUTTON') {
       const target = e.target.parentElement.parentElement.parentElement.parentElement
-      const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-      return {index:index,whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement}
+      const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+      return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement }
 
     }
-    if (e.target.tagName=='INPUT'){
+    if (e.target.tagName == 'INPUT') {
       const target = e.target.parentElement.parentElement.parentElement
-      const index = Array.from(e.target.parentElement.parentElement.parentElement.parentElement.parentElement.getElementsByClassName(className)).indexOf(target)
-      return {index:index,whole:e.target.parentElement.parentElement.parentElement.parentElement.parentElement}
+      const index = Array.from(wholeThing.current.getElementsByClassName(className)).indexOf(target)
+      return { index: index, whole: e.target.parentElement.parentElement.parentElement.parentElement.parentElement }
 
     }
 
   }
 
-
-    
   const roleWhitelistChange = (e, values) => {
     const index = getIndex(e, 'roleWhitelist').index
     let roles = {}
-    values.forEach(value => {roles[value] = props.roleobj[value]})
+    values.forEach(value => { roles[value] = props.roleobj[value] })
     let categoryInfo = categories
     categoryInfo[index].whitelistedRoles = roles
     setCategories([...categoryInfo])
   }
 
   const saveData = () => {
-    let logData = {guild: props.server, table: props.table, type:'blacklist', categories: categories}
-    fetch('/api/send-automod', {
+    let logData = { guild: props.server, table: props.table, type: 'blacklist', categories: categories }
+    fetch('/api/send-msgautomod', {
       method: 'POST',
       body: JSON.stringify(logData),
       headers: {
@@ -2166,17 +2504,17 @@ const CatProfileBasedSet = (props) => {
       const categoryInfo = categories
       categoryInfo.splice(index, 1)
       setCategories([...categoryInfo])
-  }
-  if (e.target.tagName == 'svg') {
-      const target = e.target.parentElement.parentElement            
+    }
+    if (e.target.tagName == 'svg') {
+      const target = e.target.parentElement.parentElement
       const whole = target.parentElement.parentElement
       const deletes = Array.from(whole.getElementsByClassName('delete'))
       const index = deletes.indexOf(target)
       const categoryInfo = categories
       categoryInfo.splice(index, 1)
       setCategories([...categoryInfo])
-  }
-  if (e.target.tagName == 'SPAN') {
+    }
+    if (e.target.tagName == 'SPAN') {
       const target = e.target
       const whole = target.parentElement.parentElement
       const deletes = Array.from(whole.getElementsByClassName('delete'))
@@ -2184,368 +2522,468 @@ const CatProfileBasedSet = (props) => {
       const categoryInfo = categories
       categoryInfo.splice(index, 1)
       setCategories([...categoryInfo])
-  } 
+    }
   }
+
+  const onSubstringChange = (e) => {
+    const index = Array.from(wholeThing.current.getElementsByClassName('searchForSubs')).indexOf(e.target)
+    let categoryInfo = categories
+    let bool = 0
+    if (e.target.checked) {
+      bool++
+    }
+    categoryInfo[index].substring = bool
+    setCategories([...categoryInfo])
+
+  }
+
+  const openFileImport = (e) => {
+    let target;
+    if (e.target.tagName == "path") {
+      target = e.target.parentElement.parentElement.parentElement
+    }
+    if (e.target.tagName == "svg" || e.target.tagName == "P") {
+      target = e.target.parentElement.parentElement
+    }
+    if (e.target.tagName == "SPAN") {
+      target = e.target.parentElement
+    }
+    if (e.target.tagName == "BUTTON") {
+      target = e.target
+    }
+
+    const wholeGrid = target.parentElement.parentElement.parentElement.parentElement
+    
+    const index = Array.from(wholeGrid.getElementsByClassName("wordImportButton")).indexOf(target)
+    
+    wholeGrid.getElementsByClassName("wordImport")[index].click()
+    
+    
+  }
+
+  const onFileInput = (e) => {
+    const file = e.target.files[0]
+    const wholeGrid = e.target.parentElement.parentElement.parentElement.parentElement
+    const index = Array.from(wholeGrid.getElementsByClassName("wordImport")).indexOf(e.target)
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const categoryInfo = categories
+      categoryInfo[index].words = categoryInfo[index].words.concat(reader.result.split("\n").filter(n => n.length > 0))
+      setCategories([...categoryInfo])
+    };
+    reader.readAsText(file)
+    e.target.value = ''; 
+  }
+
+  const capitalize = (str) => {
+    return str.charAt(0).toUpperCase() + str.slice(1)
+  }
+
   let categorySection;
   if (categories.length > 0) {
-    categorySection = categories.map((category)=> {
-      return <div className={'category'}>
-      <TextField style={{width: 200}} className={'title'} defaultValue={category.title} onInput={setTitle}/><IconButton onClick={deleteRule} className={`delete ${categories.indexOf(category)}`} style={{color: 'red', height: 35, width: 35, position: 'relative', top: 'calc(100% - 17.5px)'}} component="span"> <CloseIcon /> </IconButton>
-      <footer style={{padding: "10px 0"}}></footer>
-      <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Words</Typography>
-      <Autocomplete className={'inputWords'} multiple onChange={onWordsChange} value={Object.keys(category.words)} freeSolo options={[]} renderInput={(params) => <TextField {...params} placeholder={props.placehold} />}/>
-      <div style={{width: "100%", position: "relative", height: 24, top: 10}}>
-        <input className={'searchForSubs'} type="checkbox" style={{width: 18, height: 18, position: "absolute", left: -5, top: -1 }}/>
-        <Typography style={{fontSize: 16, width: "calc(100% - 30px)%", display: "flex" , position: "absolute", left: 25, top: 0}}>Search for substrings</Typography>
+    categorySection = categories.map((category) => {
+      return <div className={'category'} key={categories.indexOf(category)}>
+        <TextField className={"title"} value={category.title} onInput={setTitle} /><IconButton onClick={deleteRule} className={`delete ${categories.indexOf(category)}`} style={{ color: 'red', height: 35, width: 35, position: 'relative', top: 'calc(100% - 17.5px)' }} component="span"> <CloseIcon /> </IconButton>
+        <div style={{display: "inline-block"}} >
+        <Tooltip title={<span style={{ fontSize: 13, height: 18 }}>{`Only accepts txt files. ${capitalize(props.offtype.split(" ").slice(-1)[0])} should be separated using newlines. Imported ${props.offtype.split(" ").slice(-1)[0].toLowerCase()} are added to the existing list.`}</span>} enterTouchDelay={0} placement="left" PopperProps={{style: {marginLeft: 0}}}>
+        <div >
+        <input className="wordImport" type="file" style={{display: "none"}} accept=".txt" onInput={onFileInput}/>
+        <Button className="wordImportButton" onClick={openFileImport} style={{paddingLeft: 10, paddingRight: 10, height: 36, fontSize: 15, textTransform: "initial", backgroundColor: 'white', color: "black"}}>
+            <PublishIcon/>
+
+            <Typography style={{paddingLeft: 5}}>{`Import ${props.offtype.split(" ").slice(-1)[0].toLowerCase()}`}</Typography>
+        </Button>
+        </div>
+        </Tooltip>
+        </div>
+        <footer style={{ padding: "10px 0" }}></footer>
+        <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Words</Typography>
+        <Autocomplete className={'inputWords'} multiple onChange={onWordsChange} value={category.words} freeSolo options={[]} renderInput={(params) => <TextField {...params} placeholder={props.placehold} />} />
+        <Tooltip title={<span style={{ fontSize: 13, height: 18 }}>{substringExplain}</span>} enterTouchDelay={0} placement="left" PopperProps={{style: {marginLeft: -56}}}>
+<div style={{ width: "100%", position: "relative", height: 24, top: 10 }}>
+          <input className={'searchForSubs'} type="checkbox" style={{ width: 18, height: 18, position: "absolute", left: -5, top: -1 }} onChange={onSubstringChange} />
+          <Typography style={{ fontSize: 16, width: "calc(100% - 30px)%", display: "flex", position: "absolute", left: 25, top: 0 }}>Search for substrings</Typography>
+        </div></Tooltip>
+        <footer style={{ padding: "10px 0" }}></footer>
+        <Grid container>
+        <Grid item xs={12}>
+        <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Punishments</Typography>
+        </Grid>
+        <Grid item xs={12}>
+        <Autocomplete className={'punishments'} onChange={onPunishTagsChange} value={category.punishments} multiple style={{ height: 32, width: "100%" }} options={category.availableOptions} ListboxProps={{ className: `MuiAutocomplete-listbox punishAutocomplete${categories.indexOf(category)}` }} renderInput={(params) => <TextField {...params} placeholder={props.placeholder} />} />
+        </Grid>
+        </Grid>
+        <Grid xs={12} style={{ position: "relative" }}>
+        <div className={'duration'} style={{ display: "none" , position: 'relative'}}>
+          <footer style={{ padding: "10px 0" }}></footer>
+          <input defaultValue={category.timeval} onInput={onTimevalChange} style={{ height: 30, fontSize: 18, width: `calc(100% - 110px)` }} type="number" /><select onChange={onTimeunitChange} defaultValue={category.timeunit} style={{ width: 100, position: "absolute", fontSize: 16, height: 30, right: 0 }}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
+        </div>
+        <div style={{ display: "none" , position: 'relative'}} className={'warnpoints'}>
+          <footer style={{ padding: "10px 0" }}></footer>
+          <input onInput={onPointChange} defaultValue={category.points} style={{ height: 30, fontSize: 18, width: `calc(100% - 80px)` }} type="number" /><Typography style={{ width: 80, textAlign: "right", fontSize: 16, position: "absolute", right: 0, top: "26px" }}>Points</Typography>
+        </div>
+        </Grid>
+        <Gap></Gap>
+        <Grid xs={12} style={{ position: "relative" }}>
+          <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted roles</Typography>
+          <Autocomplete value={Object.keys(category.whitelistedRoles)} multiple className={'roleWhitelist'} onChange={roleWhitelistChange} options={props.roles} renderInput={(params) => <TextField {...params} />} ListboxProps={{ className: `MuiAutocomplete-listbox punishAutocomplete${categories.indexOf(category)}` }} />
+        </Grid>
+        <footer style={{ padding: "10px 0" }}></footer>
+        <footer style={{ padding: "10px 0" }}></footer>
       </div>
-      <footer style={{padding: "10px 0"}}></footer>
-      <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Punishments</Typography>
-      <Autocomplete className={'punishments'} onChange={onPunishTagsChange} value={category.punishments} multiple style={{height: 32, width:"100%"}} options={category.availableOptions} ListboxProps={{className: `MuiAutocomplete-listbox punishAutocomplete${categories.indexOf(category)}`}}  renderInput={(params) => <TextField {...params} placeholder={props.placeholder} />} />
-      <div className={'duration'} style={{display: 'none'}}>
-      <footer style={{padding: "10px 0"}}></footer>
-      <Grid xs={12} style={{position: "relative"}}>
-      <input defaultValue={category.timeval}  onInput={onTimevalChange} style={{height: 30, fontSize: 18, width: `calc(100% - 110px)`}} type="number"/><select onChange={onTimeunitChange} defaultValue={category.timeunit} style={{width: 100, position: "absolute", fontSize: 16,height: 30,right: 0}}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
-      </Grid>
-    </div>
-    <div style={{display: "none"}} className={'warnpoints'}>
-    <footer style={{padding: "10px 0"}}></footer>
-    <Grid xs={12} style={{position: "relative"}}>
-    <input onInput={onPointChange} defaultValue={category.points} style={{height: 30, fontSize: 18, width: `calc(100% - 80px)`}} type="number"/><Typography style={{width:80,textAlign: "right", fontSize: 16,  position: "absolute", right: 0, top: "calc(50% - 12px)"}}>Points</Typography>
-    </Grid>
-    </div>
-    <Gap></Gap>
-  <Grid xs={12} style={{position: "relative"}}>
-      <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted roles</Typography>
-      <Autocomplete value={Object.keys(category.whitelistedRoles)} multiple className={'roleWhitelist'} onChange={roleWhitelistChange}options={props.roles} renderInput={(params) => <TextField {...params}/>} ListboxProps={{className: `MuiAutocomplete-listbox punishAutocomplete${categories.indexOf(category)}`}}/>
-  </Grid>
-  <footer style={{padding: "10px 0"}}></footer>
-  <footer style={{padding: "10px 0"}}></footer>
-      </div>
-      })
+    })
   } else {
-    categorySection = <Typography style={{paddingRight: 5, fontSize: 16}}>There are no categories, click "CREATE NEW CATEGORY" to add one!</Typography>
+    categorySection = <Typography style={{ paddingRight: 5, fontSize: 16 }}>{newC}</Typography>
   }
-        return ( <Grid ref={wholeThing} item xs={12} md={6}>
-      <Card style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-          <CardContent style={{flexGrow: 1, left:15, position: "relative", width: "calc(100% - 30px)"}}>
-              <Typography style={{position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)"}}>{props.offtype}</Typography>
-              <footer style={{padding: "5px 0"}}></footer>
-              <Grid xs={12} style={{width: "calc(100% - 20px)", position: 'relative', left: 10}}>
-              <Button onClick={() => {createCategory()}} style={{ backgroundColor: "lightgray"}}><AddIcon style={{color: "black", fontSize: 14, position: "relative", left: -3, }}/><Typography style={{color: "black", fontSize: 14}}>CREATE NEW CATEGORY</Typography></Button>
-              <footer style={{padding: "10px 0"}}></footer>
-              <Divider style={{opacity: 0.4, position: "relative", top: 0, width: "100%",}}></Divider>
-              <footer style={{padding: "5px 0"}}></footer>
-              <Typography style={{fontSize: 18, width: "100%", display: "block"}}>{props.categoryName}</Typography>
-              <footer style={{padding: "10px 0"}}></footer>
-              {categorySection}
-              <Gap />
-              
-              
-              
+  return (<Grid ref={wholeThing} item xs={12} md={6}>
+    <Card style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CardContent style={{ flexGrow: 1, left: 15, position: "relative", width: "calc(100% - 30px)" }}>
+        <Typography style={{ position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)" }}>{props.offtype}</Typography>
+        <footer style={{ padding: "5px 0" }}></footer>
+        <Grid xs={12} style={{ width: "calc(100% - 20px)", position: 'relative', left: 10 }}>
+          <Button onClick={() => { createCategory() }} style={{ backgroundColor: "lightgray" }}><AddIcon style={{ color: "black", fontSize: 14, position: "relative", left: -3, }} /><Typography style={{ color: "black", fontSize: 14 }}>CREATE NEW CATEGORY</Typography></Button>
+          <footer style={{ padding: "10px 0" }}></footer>
+          <Divider style={{ opacity: 0.4, position: "relative", top: 0, width: "100%", }}></Divider>
+          <footer style={{ padding: "5px 0" }}></footer>
+          <Typography style={{ fontSize: 18, width: "100%", display: "block" }}>{props.categoryName}</Typography>
+          <footer style={{ padding: "10px 0" }}></footer>
+          {categorySection}
+          <Gap />
+
+
+
+        </Grid>
+
+      </CardContent>
+
+      <footer style={{ padding: "20px 0" }}>
+        <Button onClick={saveData} style={{ backgroundColor: "cornflowerblue", padding: "5px", position: "relative", left: 40, top: -9 }}><Typography style={{ fontSize: 18, textTransform: "initial", color: "white" }}>Save</Typography></Button>
+      </footer>
+
+    </Card>
+  </Grid>)
+
+
+
+}
+
+
+class ProfileTAAutomodSet extends React.Component {
+  constructor(props) {
+    super(props);
+    this.onPunishTagsChange = this.onPunishTagsChange.bind(this);
+    this.onRoleWhitelistChange = this.onRoleWhitelistChange.bind(this);
+    this.onTimeChange = this.onTimeChange.bind(this)
+    this.timeUnitChange = this.timeUnitChange.bind(this)
+    this.state = { punishments: this.props.punishments, availableOptions: ["Mute", "Warn", "Kick", "Tempban", "Ban"], whitelistedRoles: this.props.role_whitelists, timeval: this.props.timeval, points: this.props.points, timeunit: this.props.timeunit };
+    this.time = React.createRef();
+    this.timeAmount = React.createRef();
+    this.pointRef = React.createRef();
+    this.points = React.createRef();
+    this.durationRef = React.createRef();
+    this.onPointChange = this.onPointChange.bind(this)
+    this.saveData = this.saveData.bind(this)
+    this.changePunishSize = this.changePunishSize.bind(this)
+
+  }
+  changePunishSize = () => {
+    const e = document.getElementById(`${this.props.table}punishselect`)
+    e.parentElement.parentElement.parentElement.style.height = `${e.parentElement.offsetHeight}px`
+  }
+
+  onPunishTagsChange = (event, values, reason, detail) => {
+    this.changePunishSize()
+
+    const durationNode = this.durationRef.current;
+    const pointNode = this.pointRef.current;
+
+    var available = this.state.availableOptions;
+
+    this.setState({
+      punishments: values
+    }, () => {
+      const chosenOptions = Array.from(this.state.punishments)
+      if (chosenOptions.includes("Mute") || chosenOptions.includes("Tempban")) {
+        durationNode.style.display = "block"
+      } else {
+        durationNode.style.display = "none"
+
+      }
+
+      if (chosenOptions.includes("Warn")) {
+        pointNode.style.display = "block"
+
+
+      } else {
+        pointNode.style.display = "none"
+
+      }
+    });
+
+
+
+    var chosenOptions = Array.from(values)
+
+    if (chosenOptions.includes("Mute")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Mute") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
+        }
+
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Warn")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Warn") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
+        }
+
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Kick")) {
+      function ok(value) {
+        return value != "Mute" && value != "Ban" && value != "Tempban"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Kick") {
+        if (!available.includes("Mute")) {
+          available.push("Mute")
+        }
+
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Tempban")) {
+      function ok(value) {
+        return value != "Kick" && value != "Ban" && value != "Mute"
+      }
+      const temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Tempban") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
+        }
+
+        if (!available.includes("Mute")) {
+          available.push("Mute")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+      }
+    }
+
+    if (chosenOptions.includes("Ban")) {
+      function ok(value) {
+        return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
+      }
+      var temp = available.filter(ok)
+      available = temp
+    } else {
+      if (reason === 'remove-option' && detail.option == "Ban") {
+        if (!available.includes("Kick")) {
+          available.push("Kick")
+        }
+
+        if (!available.includes("Mute")) {
+          available.push("Mute")
+        }
+        if (!available.includes("Ban")) {
+          available.push("Ban")
+        }
+        if (!available.includes("Tempban")) {
+          available.push("Tempban")
+        }
+        if (!available.includes("Warn")) {
+          available.push("Warn")
+        }
+
+      }
+    }
+
+    if (reason === 'clear') {
+      available = ['Mute', 'Warn', 'Kick', 'Tempban', 'Ban']
+    }
+
+    this.setState({
+      availableOptions: punishmentSort(available)
+    })
+
+
+  }
+
+  onRoleWhitelistChange = (event, values) => {
+    const roleobj = this.props.roleobj
+    let roles = {}
+    values.forEach(value => { roles[value] = roleobj[value] })
+    this.setState({
+      whitelistedRoles: roles
+    })
+  }
+
+  saveData() {
+
+    const value = parseInt(this.timeAmount.current.value)
+    const timeval = this.time.current.value
+    var logData = {}
+    logData = { table: this.props.table, type: 'profiletaabased', guild: this.props.server, punishments: this.state.punishments, whitelistedRoles: this.state.whitelistedRoles, warnPoints: this.state.points, punishTime: this.state.timeval, timeval: this.state.timeval, timeunit: this.state.timeunit }
+    if (this.state.punishments.includes("Mute") || this.state.punishments.includes("Tempban")) {
+      if (timeval == "seconds") {
+        logData.punishTime = this.state.timeval
+      }
+      if (timeval == "minutes") {
+        logData.punishTime = 60 * this.state.timeval
+      }
+      if (timeval == "hours") {
+        logData.punishTime = 3600 * this.state.timeval
+      }
+      if (timeval == "days") {
+        logData.punishTime = 86400 * this.state.timeval
+      }
+    }
+
+    fetch('/api/send-profileautomod', {
+      method: 'POST',
+      body: JSON.stringify(logData),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+
+
+
+
+    this.setState({ currentStuff: this.state })
+
+
+  }
+  timeUnitChange(e) {
+    this.setState({ timeunit: e.target.value })
+  }
+  onPointChange() {
+    const value = parseInt(this.points.current.value)
+    if (value.length == 0) {
+      this.points.current.value = 0
+      this.setState({ points: 0 })
+    } else {
+      this.setState({ points: value })
+    }
+  }
+
+  componentDidMount() {
+    const punishments = this.state.punishments
+    if (punishments.includes('Mute')) {
+      this.setState({ availableOptions: ['Mute', 'Warn'] })
+      this.durationRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Warn')) {
+      this.setState({ availableOptions: ['Mute', 'Warn'] })
+      this.pointRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Kick')) {
+      this.setState({ availableOptions: ['Warn', 'Kick'] })
+    }
+    if (punishments.includes('Tempban')) {
+      this.setState({ availableOptions: ['Warn', 'Tempban'] })
+      this.durationRef.current.style.display = 'block'
+    }
+    if (punishments.includes('Ban')) {
+      this.setState({ availableOptions: ['Ban'] })
+    }
+    let rlwl = {}
+    let rl_whitelists = Object.keys(this.props.roleobj).filter(f => Object.values(this.props.role_whitelists).includes(this.props.roleobj[f]))
+    rl_whitelists.forEach(rl => rlwl[rl] = this.props.roleobj[rl])
+    this.setState({ whitelistedRoles: rlwl })
+    this.setState({ currentStuff: this.state })
+    this.changePunishSize()
+    const s = new ResizeSensor(document.getElementById(`${this.props.table}punishselect`).parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement, this.changePunishSize)
+  }
+
+  onTimeChange = (e) => {
+    const value = parseInt(e.target.value)
+    this.setState({ timeval: value })
+  }
+
+  render() {
+    return <Grid item xs={12} md={6}>
+      <Card style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <CardContent style={{ flexGrow: 1, left: 15, position: "relative", width: "calc(100% - 30px)" }}>
+          <Typography style={{ position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)" }}>{this.props.offtype}</Typography>
+          <footer style={{ padding: "5px 0" }}></footer>
+          <Grid xs={12} style={{ width: "calc(100% - 20px)", position: "relative", left: 10 }}>
+          <Grid container >
+              <Grid item xs={12}>
+                <Typography style={{ fontSize: 16, width: "100%", display: "block" }}>Actions to be taken</Typography>
               </Grid>
-  
-          </CardContent>
-  
-          <footer style={{padding: "20px 0"}}>
-          <Button onClick={saveData} style={{backgroundColor:"cornflowerblue", padding: "5px", position: "relative", left: 40, top:-9}}><Typography style={{fontSize: 18, textTransform: "initial", color: "white"}}>Save</Typography></Button>
-          </footer>
-  
+              <Grid item xs={12}>
+                <Autocomplete id={`${this.props.table}punishselect`} value={this.state.punishments} onChange={this.onPunishTagsChange} multiple style={{ height: 32, width: "100%" }} options={this.state.availableOptions} renderInput={(params) => <TextField {...params} placeholder={this.props.placeholder} />} />
+              </Grid>
+            </Grid>
+            <Grid xs={12} style={{ position: "relative" }} >
+              <div ref={this.durationRef} style={{ display: "none", position: "relative" }}>
+                <footer style={{ padding: "10px 0" }}></footer>
+                <input ref={this.timeAmount} onInput={this.timeAmountChange} defaultValue={this.state.timeValue} style={{ height: 30, fontSize: 18, width: `calc(100% - 110px)` }} type="number" /><select defaultValue={this.state.actualTime} ref={this.time} onChange={this.timeUnitChange} style={{ width: 100, position: "absolute", fontSize: 16, height: 30, right: 0 }}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
+              </div>
+              <div ref={this.pointRef} style={{ display: "none", position: "relative" }}>
+                <footer style={{ padding: "10px 0" }}></footer>
+                <input onInput={this.onPointChange} ref={this.points} defaultValue={this.state.points} style={{ height: 30, fontSize: 18, width: `calc(100% - 80px)` }} type="number" /><Typography style={{ width: 80, textAlign: "right", fontSize: 16, position: "absolute", right: 0, top: "calc(50% - 2px)" }}>Points</Typography>
+              </div>
+            </Grid>
+            <Gap />
+            <Grid xs={12} style={{ position: "relative" }}>
+              <Typography style={{ fontSize: 15, width: "100%", display: "block" }}>Whitelisted roles</Typography>
+              <Autocomplete onChange={this.onRoleWhitelistChange} value={Object.keys(this.props.roleobj).filter(f => Object.values(this.props.role_whitelists).includes(this.props.roleobj[f]))} multiple options={this.props.roles} renderInput={(params) => <TextField {...params} />} />
+            </Grid>
+          </Grid>
+        </CardContent>
+        <footer style={{ padding: "20px 0" }}>
+          <Button onClick={this.saveData} style={{ backgroundColor: "cornflowerblue", padding: "5px", position: "relative", left: 40, top: -9 }}><Typography style={{ fontSize: 18, textTransform: "initial", color: "white" }}>Save</Typography></Button>
+        </footer>
+
       </Card>
-  </Grid> )
-  
-      
-    
-    }
-
-
-  class ProfileTAAutomodSet extends React.Component {
-    constructor(props) {
-        super(props);
-        this.onPunishTagsChange = this.onPunishTagsChange.bind(this);
-        this.onRoleWhitelistChange = this.onRoleWhitelistChange.bind(this);
-        this.onTimeChange = this.onTimeChange.bind(this)
-        this.timeUnitChange = this.timeUnitChange.bind(this)
-        this.state = {punishments:this.props.punishments, availableOptions:["Mute", "Warn", "Kick", "Tempban", "Ban"],whitelistedRoles:this.props.role_whitelists, timeval: this.props.timeval, points: this.props.points, timeunit: this.props.timeunit};        
-        this.time = React.createRef();
-        this.timeAmount = React.createRef();
-        this.pointRef = React.createRef();
-        this.points = React.createRef();
-        this.durationRef = React.createRef();
-        this.onPointChange = this.onPointChange.bind(this)
-        this.saveData = this.saveData.bind(this)
-
-    }
-
-    onPunishTagsChange = (event, values, reason, detail) => {
-        const durationNode = this.durationRef.current;
-        const pointNode = this.pointRef.current;
-    
-        var available = this.state.availableOptions;
-    
-        this.setState({
-            punishments: values 
-        }, () => {
-            const chosenOptions = Array.from(this.state.punishments)
-            if (chosenOptions.includes("Mute") || chosenOptions.includes("Tempban")) {
-                durationNode.style.display = "block"
-            } else {
-                durationNode.style.display = "none"
-    
-            }
-    
-            if (chosenOptions.includes("Warn")) {
-                pointNode.style.display = "block"
-                
-    
-            } else {
-                pointNode.style.display = "none"
-    
-            }
-        });
-    
-    
-    
-        var chosenOptions = Array.from(values)
-        
-        if (chosenOptions.includes("Mute")) {
-          function ok(value) {
-            return value != "Kick" && value != "Ban" && value != "Tempban"
-          }
-          var temp = available.filter(ok)
-          available = temp
-        } else{
-          if(reason === 'remove-option' && detail.option == "Mute") {
-          if (!available.includes("Kick")) {
-            available.push("Kick")
-          }
-          
-          if (!available.includes("Tempban")) {
-            available.push("Tempban")
-          }
-          if (!available.includes("Ban")) {
-            available.push("Ban")
-          }
-        }
-      }
-    
-        if (chosenOptions.includes("Warn")) {
-          function ok(value) {
-            return value != "Kick" && value != "Ban" && value != "Tempban"
-          }
-          var temp = available.filter(ok)
-          available = temp
-        } else {
-          if(reason === 'remove-option' && detail.option == "Warn") {
-          if (!available.includes("Kick")) {
-            available.push("Kick")
-          }
-          
-          if (!available.includes("Tempban")) {
-            available.push("Tempban")
-          }
-          if (!available.includes("Ban")) {
-            available.push("Ban")
-          }
-        }
-      }
-    
-        if (chosenOptions.includes("Kick")) {
-          function ok(value) {
-            return value != "Mute" && value != "Ban" && value != "Tempban"
-          }
-          var temp = available.filter(ok)
-          available = temp
-        } else {
-          if(reason === 'remove-option' && detail.option == "Kick") {
-          if (!available.includes("Mute")) {
-            available.push("Mute")
-          }
-          
-          if (!available.includes("Tempban")) {
-            available.push("Tempban")
-          }
-          if (!available.includes("Ban")) {
-            available.push("Ban")
-          }    
-        }
-      }
-    
-        if (chosenOptions.includes("Tempban")) {
-          function ok(value) {
-            return value != "Kick" && value != "Ban" && value != "Mute"
-          }
-          const temp = available.filter(ok)
-          available = temp
-        } else {
-          if(reason === 'remove-option' && detail.option == "Tempban") {
-          if (!available.includes("Kick")) {
-            available.push("Kick")
-          }
-          
-          if (!available.includes("Mute")) {
-            available.push("Mute")
-          }
-          if (!available.includes("Ban")) {
-            available.push("Ban")
-          }
-        }
-      }
-    
-        if (chosenOptions.includes("Ban")) {
-          function ok(value) {
-            return value != "Mute" && value != "Kick" && value != "Tempban" && value != "Warn"
-          }
-          var temp = available.filter(ok)
-          available = temp
-        } else {
-          if (reason === 'remove-option' && detail.option == "Ban") {
-            if (!available.includes("Kick")) {
-              available.push("Kick")
-            }
-            
-            if (!available.includes("Mute")) {
-              available.push("Mute")
-            }
-            if (!available.includes("Ban")) {
-              available.push("Ban")
-            }
-            if (!available.includes("Tempban")) {
-              available.push("Tempban")
-            }
-            if (!available.includes("Warn")) {
-              available.push("Warn")
-            }
-            
-          }
-      }
-
-      if (reason === 'clear') {
-        available = ['Mute','Warn', 'Kick','Tempban', 'Ban']
-      }
-    
-        this.setState({
-          availableOptions: available
-        })
-    
-    
-    }
-
-  
-      
-      onRoleWhitelistChange = (event, values) => {
-        const roleobj = this.props.roleobj
-        let roles = {}
-        values.forEach(value => {roles[value] = roleobj[value]})
-          this.setState({
-            whitelistedRoles: roles
-          })
-      }
-
-      saveData(){
-          
-        const value = parseInt(this.timeAmount.current.value)
-        const timeval = this.time.current.value
-        var logData = {}
-        logData = {table: this.props.table, type: 'profiletaabased' ,guild: this.props.server,punishments: this.state.punishments, whitelistedRoles: this.state.whitelistedRoles, warnPoints: this.state.points, punishTime: this.state.timeval, timeval: this.state.timeval, timeunit: this.state.timeunit}
-        if (this.state.punishments.includes("Mute") || this.state.punishments.includes("Tempban")) {
-          if (timeval == "seconds") {
-            logData.punishTime = this.state.timeval
-          } 
-          if (timeval == "minutes") {
-              logData.punishTime = 60*this.state.timeval          
-            } 
-          if (timeval == "hours") {
-            logData.punishTime = 3600*this.state.timeval
-          } 
-          if (timeval == "days") {
-            logData.punishTime = 86400*this.state.timeval
-          } 
-        }
-        
-        fetch('/api/send-automod', {
-          method: 'POST',
-          body: JSON.stringify(logData),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        
-      
-      }
-      timeUnitChange(e) {
-        this.setState({timeunit: e.target.value})
-      }
-      onPointChange() {
-        const value = parseInt(this.points.current.value)
-        this.setState({points: value})
-      }
-
-      componentDidMount() {
-        const punishments = this.state.punishments
-        if (punishments.includes('Mute')) {
-          this.setState({availableOptions: ['Mute', 'Warn']})
-          this.durationRef.current.style.display = 'block'
-        }
-        if (punishments.includes('Warn')) {
-          this.pointRef.current.style.display = 'block'
-        }
-        if (punishments.includes('Kick')) {
-          this.setState({availableOptions: ['Warn', 'Kick']})
-        }
-        if (punishments.includes('Tempban')) {
-          this.setState({availableOptions: ['Warn', 'Tempban']})
-          this.durationRef.current.style.display = 'block'
-        }
-        if (punishments.includes('Ban')) {
-          this.setState({availableOptions: ['Ban']})
-        }
-      }
-
-      onTimeChange = (e) => {
-        const value = parseInt(e.target.value)
-        this.setState({timeval: value})
-      }
-
-    render() {
-        return  <Grid item xs={12} md={6}>
-        <Card style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-            <CardContent style={{flexGrow: 1, left:15, position: "relative", width: "calc(100% - 30px)"}}>
-                <Typography style={{position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)"}}>{this.props.offtype}</Typography>
-                <footer style={{padding: "5px 0"}}></footer>
-                <Grid xs={12} style={{width: "calc(100% - 20px)", position: "relative", left: 10}}>
-                <Typography style={{fontSize: 16, width: "100%", display: "block"}}>Actions to be taken</Typography>
-                <Autocomplete onChange={this.onPunishTagsChange} multiple style={{height: 32, width:"100%"}} value={this.state.punishments} options={this.state.availableOptions} renderInput={(params) => <TextField {...params} placeholder={this.props.placeholder} />} />
-                <div ref={this.durationRef} style={{display: "none"}}>
-                <footer style={{padding: "10px 0"}}></footer>
-                <Grid xs={12} style={{position: "relative"}}>
-                <input ref={this.timeAmount} onInput={this.onTimeChange} defaultValue={this.state.timeval} style={{height: 30, fontSize: 18, width: `calc(100% - 110px)`}} type="number"/><select defaultValue={this.state.timeunit} onChange={this.timeUnitChange} ref={this.time} style={{width: 100, position: "absolute", fontSize: 16,height: 30,right: 0}}><option value={"seconds"}>Seconds</option> <option value={"minutes"}>Minutes</option> <option value={"hours"}>Hours</option> <option value={"days"}>Days</option></select>
-                </Grid>
-                </div>
-                <div ref={this.pointRef} style={{display: "none"}}>
-                <footer style={{padding: "10px 0"}}></footer>
-                <Grid xs={12} style={{position: "relative"}}>
-                <input onInput={this.onPointChange} ref={this.points} defaultValue={this.state.points} style={{height: 30, fontSize: 18, width: `calc(100% - 80px)`}} type="number"/><Typography style={{width:80,textAlign: "right", fontSize: 16,  position: "absolute", right: 0, top: "calc(50% - 12px)"}}>Points</Typography>
-                </Grid>
-                </div>
-                <Gap/>
-                <Grid xs={12} style={{position: "relative"}}>
-                    <Typography style={{fontSize: 15, width: "100%", display: "block"}}>Whitelisted roles</Typography>
-                    <Autocomplete onChange={this.onRoleWhitelistChange} value={Object.keys(this.state.whitelistedRoles)} multiple options={this.props.roles} renderInput={(params) => <TextField {...params}/>}/>
-                </Grid>
-                </Grid>
-            </CardContent>
-            <footer style={{padding: "20px 0"}}>
-            <Button onClick={this.saveData} style={{backgroundColor:"cornflowerblue", padding: "5px", position: "relative", left: 40, top:-9}}><Typography style={{fontSize: 18, textTransform: "initial", color: "white"}}>Save</Typography></Button>
-            </footer>
-
-        </Card>
     </Grid>
-        
-    }
+
+  }
 
 
 
-    
+
 
 }
 
@@ -2559,6 +2997,6 @@ export {
   BlacklistBasedSet,
   CatProfileBasedSet,
   ProfileTAAutomodSet,
-  icons
-
-}
+  icons,
+  equals
+} 

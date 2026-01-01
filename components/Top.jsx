@@ -7,21 +7,73 @@ import GroupIcon from '@material-ui/icons/Group';
 import HomeIcon from '@material-ui/icons/Home'
 import QuestionMarkIcon from '@material-ui/icons/QuestionAnswer';
 import BuildIcon from '@material-ui/icons/Build';
-import PanToolIcon from '@material-ui/icons/PanTool';
+import YouTubeIcon from '@material-ui/icons/YouTube';
+import CommentIcon from '@material-ui/icons/Comment';
+import { makeStyles } from '@material-ui/styles'
 import classes from './Bot.module.css'
 import { signIn, signOut } from 'next-auth/react'
 import { Avatar } from "@material-ui/core";
 import Link from 'next/link'
-import classNames from 'classnames'
+import Image from 'next/image'
 
 const top = 1750/52
 
+const useStyles = makeStyles({
+  topButton: {
+      backgroundColor: '#E0777D', 
+      height: 50, 
+      border: '3px solid #E0777D', 
+      width: "calc(100% - 20px)", 
+      position: 'relative',
+      left: 10, 
+      color: 'white',
+      '&:hover': { 
+          backgroundColor: "#FFFFFF", 
+          color: '#E0777D',
+          border: '3px solid #FFFFFF', 
+      }
+  },
+
+  menuButton: {
+    background: "transparent", 
+    color: "white", 
+    border: 'none',
+    '&:hover': {
+        color: '#e6e6e6'
+    }
+  },
+
+  menuButtonText: {
+    '@media (max-width: 900px)': {
+      display: 'none'
+    }
+  },
+
+  homeIcon: {
+    width: 21, 
+    lineHeight: 52,
+    '&:hover': {
+      color: '#e6e6e6'
+  },
+
+  avatarSection: {
+    position: 'absolute', top: 'calc(50% - 15px)', left: -50, width: 30, height: 30,
+    '&:hover': {
+      color: '#e6e6e6'
+    }
+  }
+  }
+
+})
+ 
 function Top(props) {
+
+  const styles = useStyles();
+
     const appBar = React.useRef();
     const loggedIn = props.loggedIn;
     const avatarSection = React.useRef();
     let topright;
-    let menu = <></>
     const [anchorEl, setAnchorEl] = React.useState(null);
     const open = Boolean(anchorEl);
     const handleClick = (event) => {
@@ -32,7 +84,8 @@ function Top(props) {
       };
   
     if (loggedIn) {
-        topright = <><Avatar  src={props.pfp} style={{position: 'absolute', top: 'calc(50% - 15px)', left: -50, width: 30, height: 30}}/><Typography aria-controls={open ? 'basic-menu' : undefined} aria-haspopup="true" aria-expanded={open ? 'true' : undefined} onClick={handleClick} style={{marginLeft: 5, textTransform: "initial", fontSize: 15, color: "white", position: 'relative', left: -10}}>{props.name}</Typography><Menu
+        topright = <><Avatar  src={props.pfp} style={{position: 'absolute', top: 'calc(50% - 15px)', left: -50, width: 30, height: 30}}/><Typography aria-controls={open ? 'basic-menu' : undefined} aria-haspopup="true" aria-expanded={open ? 'true' : undefined} onClick={handleClick} style={{marginLeft: 5, textTransform: "initial", fontSize: 15, color: "white", position: 'relative', left: -10}}>{props.name}</Typography>
+        <Menu
         id="basic-menu"
         anchorEl={anchorEl}
         open={open}
@@ -48,7 +101,7 @@ function Top(props) {
         topright = <><Button style={{background: "#ff867d", color: "white"}}><Typography style={{marginLeft: 2.5, textTransform: "initial", fontSize: 16, color: "white"}} onClick={props.signin}>Login</Typography></Button></>
     }
 
-    
+     
 
     const openAndClose = (event) => {
       const nav = document.getElementById('nav')
@@ -79,42 +132,52 @@ function Top(props) {
       }
 
     }
-    console.log(typeof topright)
 
     const [style, setStyle] = React.useState({})
     React.useEffect(() => {
       if (loggedIn) {
         setStyle({
-          width: `calc(100% - ${avatarSection.current.clientWidth + 120}px)`,
+          width: `calc(100% - ${avatarSection.current.clientWidth + 26}px)`,
         })
       } else {
         setStyle({
-          width: `calc(100% - 214px)`,
+          width: `calc(100% - 94px)`,
         })
       }
       
-    }, [avatarSection.current])
+    }, [])
     
-    if (props.partOfGuild) {
-      menu = <Button onClick={openAndClose} id="showhidemenu" style={{width: 30, background: "transparent", color: "white"}}><MenuIcon style={{fontSize: 30, color: "white"}}/></Button>
-    }
+    
     return (
         <Fragment  >
         <CssBaseline />
         <AppBar position="fixed"id="bar"ref={appBar}  style={{width: '100vw', zIndex: 3}}>
             <Toolbar>
                 
-<Link href="/"><img className={classes.homeImg}src="https://media.discordapp.net/attachments/960169345235972196/960169432498458715/Screen_Shot_2021-12-13_at_8.54.45_PM-removebg-preview.png" width="150"></img></Link>
+<Link href="/"><img className={classes.homeImg} src="/amgxlogo.png" width="150" /></Link>
 
-{menu}
 <Grid id="buttons" style={{position: 'relative', width: style.width}} container>
-<button className={classes.normallyInvis} style={{background: "transparent", color: "white", border: 'none'}}><HomeIcon style={{color: "white", width: 21, lineHeight: 52}}/></button>
-
-<button style={{background: "transparent", color: "white", border: 'none'}}><AddIcon style={{color: "white", width: 21, lineHeight: 52}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, color: "white", verticalAlign: `${top}%`}} className={classes.menuButtonText}>Invite</span></button>
-<button style={{background: "transparent", color: "white", border: 'none'}}><GroupIcon style={{color: "white", width: 21}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, color: "white", verticalAlign: `${top}%`}} className={classes.menuButtonText}>Discord</span></button>
-<button style={{background: "transparent", color: "white", border: 'none'}}><QuestionMarkIcon style={{color: "white", width: 21}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, color: "white", verticalAlign: `${top}%`}} className={classes.menuButtonText}>Support</span></button>
-<button className={classes.becomeInvisWhenSmall} style={{background: "transparent", color: "white", border: 'none'}}><BuildIcon style={{color: "white", width: 21}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, color: "white", verticalAlign: `${top}%`}} className={classes.menuButtonText}>Commands</span></button>
-<button className={classes.becomeInvisWhenSmall} style={{background: "transparent", color: "white", border: 'none'}}><PanToolIcon style={{color: "white", width: 21}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, color: "white", verticalAlign: `${top}%`}} className={classes.menuButtonText}>Appeals</span></button>
+<Link href="/">
+<button className={classes.normallyInvis} style={{background: "transparent", color: "white", border: 'none'}}><HomeIcon className={styles.homeIcon}/></button>
+</Link>
+<Link href="https://discord.com/api/oauth2/authorize?client_id=834072169507848273&permissions=1642758405303&scope=bot">
+<button className={styles.menuButton} ><AddIcon style={{width: 21, lineHeight: 52}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, verticalAlign: `${top}%`}} className={styles.menuButtonText}>Invite</span></button>
+</Link>
+<Link href="https://discord.gg/bbqBzpmt6A" >
+  <button className={styles.menuButton}><GroupIcon style={{ width: 21}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, verticalAlign: `${top}%`}} className={styles.menuButtonText}>Discord</span></button>
+</Link>
+<Link href="https://discord.gg/NQcfMgRa7W">
+<button className={styles.menuButton}><QuestionMarkIcon style={{width: 21}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, verticalAlign: `${top}%`}} className={styles.menuButtonText}>Support</span></button>
+</Link>
+<Link href="/commands">
+<button  className={styles.menuButton}><BuildIcon style={{width: 21}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, verticalAlign: `${top}%`}} className={styles.menuButtonText}>Commands</span></button>
+</Link>
+<Link href="https://youtube.com/playlist?list=PL_O68s4giDMfb7_jgb1rrisRSS3Dc7x4t">
+<button  className={styles.menuButton}><YouTubeIcon style={{width: 21}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, verticalAlign: `${top}%`}} className={styles.menuButtonText}>Tutorials</span></button>
+</Link>
+<Link href="https://forms.gle/H9VjrV4ZoGzT2gkP8">
+<button  className={styles.menuButton}><CommentIcon style={{ width: 21}}/><span style={{marginLeft: 5, textTransform: "initial", fontSize: 15, verticalAlign: `${top}%`}} className={styles.menuButtonText}>Feedback</span></button>
+</Link>
 </Grid>
 <div ref={avatarSection} style={{position: 'absolute', right: 10, display: 'inline-block'}} item>{topright}</div>
                 </Toolbar>

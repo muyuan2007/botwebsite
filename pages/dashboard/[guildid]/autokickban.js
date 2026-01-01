@@ -1,116 +1,96 @@
-import AutoKickBan, {icons} from '../../../components/AutoKickBan'
+import AutoKickBan from '../../../components/AutoKickBan'
 import { useRouter } from 'next/router'
 import { useEffect } from 'react'
-import { getSession, signIn } from 'next-auth/react'
-import { ListItem, ListItemIcon, ListItemText, Grid, Container, Divider, List, Box, Drawer, Toolbar } from '@material-ui/core'
-import Link from 'next/link'
+import { signIn } from 'next-auth/react'
+import { DatabaseFails } from '../../../components/Fails'
+import Head from 'next/head'
+import { hasSession } from '../../../components/Guild'
+import db_pool from '../../../components/db_pool'
 
 const drawerWidth = 210
-const links = {"General Settings": 'botsettings', "Automod": 'automod', "Logging":'modlogs', "Autopunish": 'autopunish', "Auto Kick/Ban":'autokickban'}
+const links = {"General Settings": 'botsettings', "Automod": 'automod', "Logging":'modlogs', "Autopunish": 'autopunish', "Auto Kick/Ban":'autokickban', "Weblogs": 'weblogs'}
+
+const handleSignIn = async (url) => {
+    await signIn("discord", {
+      callbackUrl: `/${url}`,
+    });
+  };
+
 
 function AutoKicker(props) {
     const router = useRouter()
     const guildid = router.query.guildid
     const inguild = props.inguild
     const getthesession = async () => {
-        const getsession = await getSession();
-        if (getsession == null) {
-            signIn('discord','localhost:3000/api/auth/callback/discord')
+        const loggedIn = await hasSession()
+        if (!loggedIn) {
+            handleSignIn(`/dashboard/${guildid}/autokickban`)
         }
     }
     useEffect(async ()=>{
-        let myguilds = []
         getthesession()
-        let accesstoken = ''
-        var token = fetch('http://localhost:8080/api/auth/session').then(response => response.json()).then((data) => data.accessToken).then((data) => {return data})
-        await token.then(data => accesstoken=data)
-        var guilds = fetch('https://discord.com/api/users/@me/guilds', {
-            headers: {
-                Authorization: `Bearer ${accesstoken}`
-            }
-        }).then(response => response.json()).then((data) => {let guildinfo = []; Array.from(data).forEach(guild => {if (guild.permissions >= 1312280161) {guildinfo.push(BigInt(guild.id))}}); return guildinfo})
         
-        await guilds.then(data => myguilds=data)
-
-        if (!myguilds.includes(BigInt(guildid))) {
-            router.push('http://localhost:8080')
+        if (!JSON.parse(localStorage.getItem("guilds")).map(guild => guild.id).includes(guildid)) {
+            router.push('/')
         }
-        else if (!inguild) {
-            router.push(`https://discord.com/oauth2/authorize?&client_id=834072169507848273&scope=bot&permissions=8&guild_id=${guildid}&response_type=code&redirect_uri=http://localhost:8080/api/auth/callback/discord`)
+        else if (!inguild && !props.erred) {
+            router.push(`https://discord.com/api/oauth2/authorize?client_id=834072169507848273&permissions=1642758405303&scope=bot&guild_id=${guildid}`)
         }
-    },[])
-   
-    return <Box className={'uuu'}style={{ display: 'flex', position: 'relative', top:60 }}>
-    
-    <Drawer
-    
-        id="nav" style={{zIndex:2,backgroundColor: 'lightgray', height: '100vw',position: 'absolute', width: drawerWidth}}
-        variant="permanent"
-        anchor="left"
-      >
-          <div style={{height: 55}}/>
-          <div style={{height: 55}}/>
-            <List style={{position: 'relative'}}>
-          {['General Settings', 'Automod', 'Logging', 'Autopunish','Auto Kick/Ban'].map((text, index) => (
-              <Link href={`/dashboard/${guildid}/${links[text]}`}>
-            <ListItem button key={text}>
-              <ListItemIcon>
-                {icons[text]}
-              </ListItemIcon>
-              <ListItemText primary={text} />
-            </ListItem>
-            </Link>
-          ))}
-        </List>
-        </Drawer>
-      <Box id={'settings'}
-        component="main"
-        sx={{ flexGrow: 1, bgcolor: 'background.default' } }
-        style={{zIndex:1,width: `calc(100% - ${drawerWidth}px)`, position:'absolute', left: drawerWidth, top: 50}}
-      >
-    <AutoKickBan server={guildid} kickRules={props.kickRules} banRules={props.banRules}/>
-    </Box></Box>
-    
-}
+    },[]);
+    const colors = {'General Settings': 'white','Automod': 'white','Logging': 'white','Autopunish': 'white','Auto Kick/Ban': 'lightgray','Weblogs': 'white'}
+    if (!props.erred) {
+    return <AutoKickBan server={guildid} kickRules={props.kickRules} banRules={props.banRules} usrn={'Press enter to add a username'} stsn={'Press enter to add a status'}/>
 
-export async function getStaticPaths(context) {
-    return {
-        paths: [],
-        fallback: 'blocking'
+    } else {
+        return <>
+        <Head>
+            <title>Failed to fetch server info</title>
+        </Head>
+        <DatabaseFails /></>
     }
-    
 }
-export async function getStaticProps(context) {
+
+
+export async function getServerSideProps(context) {
     const guildid = context.params.guildid
     const botToken = process.env.BOT_TOKEN
+    let erred = false
     let botobj = {}
-    const { Pool, Client } = require('pg')
-    const client = new Client({
-        user:'postgres',
-        host: 'localhost',
-        database: 'postgres',
-        password:'mysecretpassword',
-        port:5432
-    })
-    client.connect()
 
-    await fetch(`https://discord.com/api/guilds/${guildid}/members/834072169507848273`, {
+
+    await fetch(`https://discord.com/api/guilds/${guildid}/channels`, {
             headers: {
                 Authorization: `Bot ${botToken}`,
             }
         }).then(response => response.json()).then(data => {botobj = data})
-    let inguild = (Array.from(Object.keys(botobj)).includes('roles')&&Array.from(Object.keys(botobj)).includes('nick')&&Array.from(Object.keys(botobj)).includes('avatar')&&Array.from(Object.keys(botobj)).includes('premium_since')&&Array.from(Object.keys(botobj)).includes('joined_at')&&Array.from(Object.keys(botobj)).includes('is_pending')&&Array.from(Object.keys(botobj)).includes('pending')&&Array.from(Object.keys(botobj)).includes('user')&&Array.from(Object.keys(botobj)).includes('mute')&&Array.from(Object.keys(botobj)).includes('deaf'))
     
+    let inguild = botobj instanceof Array
+
+    if (!inguild) {
+        return {
+            redirect: {
+              destination: `https://discord.com/api/oauth2/authorize?client_id=834072169507848273&permissions=1642758405303&scope=bot&guild_id=${guildid}`,
+              permanent: false,
+            },
+          }
+    }
+    
+    const badProfilesSub = ['hitler', 'nazi', 'adolf', 'holocaust', 'auschwitz', 'rapist', 'porn', 'molest', 'traffick', 'pedo', 'paedo']
+    const badProfilesNosub = ['rape', 'raping', 'sex']
+
     let kickRules = []
-    let banRules = []
+    let banRules = [{"type": "username", "timeVal": 24, "timeUnit": "hours", "usernames": badProfilesSub, "statuses": [], substring: 1},
+                    {"type": "username", "timeVal": 24, "timeUnit": "hours", "usernames": badProfilesNosub, "statuses": [], substring: 0},
+                    {"type": "status", "timeVal": 24, "timeUnit": "hours", "usernames": [], "statuses": badProfilesSub, substring: 1},
+                    {"type": "status", "timeVal": 24, "timeUnit": "hours", "usernames": [], "statuses": badProfilesNosub, substring: 0},
+                ]
     
     function checkIfIdExists() {
         return new Promise((resolve, reject) => {
-            client.query(`SELECT * FROM autokickban where guild_id=$1`, [guildid], (err, res) => {
+            db_pool.query(`SELECT * FROM autokickban where guild_id=$1`, [guildid], (err, res) => {
                 if (err) reject(err)
                 resolve(res)
             })
-
         })
     }
 
@@ -124,13 +104,14 @@ export async function getStaticProps(context) {
                 banRules = banrules
             }
         }
-    })
+    }).catch(error => {erred = true})
 
     return {
         props: {
             inguild: inguild,
             kickRules: kickRules,
-            banRules: banRules
+            banRules: banRules,
+            erred: erred
         }
     }
 

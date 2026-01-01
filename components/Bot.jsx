@@ -12,7 +12,7 @@ const icons = {"General Settings": <SettingsIcon />, "Automod": <SecurityIcon />
 const columns = [
     { field: "id", headerName: "ID",  hide: true},
     { field: "time", headerName: 'Time', flex:0.5, wordWrap: "normal"},
-    { field: "user", headerName: "User", flex:0.5},
+    { field: "user", headerName: "User ID", flex:0.5},
     { field: "action", headerName:"Action",flex:1},
 ];
 const rows = [];
@@ -100,19 +100,13 @@ const Bot = (props) => {
         
         <Container className={classes.cardGrid} maxWidth="xl">
         <Grid container spacing={4}>
-        <Grid item key={"ok"} xs={12} md={6}>
+        <Grid item key={"ok"} xs={12} lg={6}>
             <Card className={classes.card}>
                 <CardContent className={classes.cardContent}>
-                    <Typography style={{position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)"}}>Bot Settings</Typography>
+                    <Typography style={{position: "relative", fontSize: 30, left: 10, fontFamily: "verdana", top: 0, width: "calc(100% - 80px)"}}>Bot Settings</Typography>                    
                     <footer className={classes.footerInBetween}></footer>
                     <Grid className={classes.settingBPair}>
-                    <span className={classes.optionSub}>Bot Nickname</span>
-                    <textarea onInput={getName} ref={name} defaultValue={props.name} className={classes.settingTF}></textarea>
-                    <Button style={{width: 40, height: 30, backgroundColor: "cornflowerblue",position: "absolute", right: 0, bottom: 0}} onClick={setName}>Set</Button>
-                    </Grid>
-                    <footer className={classes.footerInBetween}></footer>
-                    <Grid className={classes.settingBPair}>
-                    <p className={classes.optionSub}>Command Prefix</p>
+                    <span className={classes.optionSub}>Command Prefix</span>
                     <textarea ref={prefix} onInput={getPrefix} defaultValue={props.prefix}className={classes.settingTF}></textarea>
                     <Button style={{width: 40, height: 30, backgroundColor: "cornflowerblue",position: "absolute", right: 0, bottom: 0}} onClick={setPrefix}>Set</Button>
                     </Grid>
@@ -120,19 +114,7 @@ const Bot = (props) => {
                 <footer className={classes.cardFooter}></footer>
             </Card>
         </Grid>
-        <Grid item key={"ok"} xs={12} md={6}>
-            <Card className={classes.card}>
-                <CardContent className={classes.cardContent}>
-                    <span className={classes.cardTitle}>Recent Changes</span>
-                    <footer className={classes.footerInBetween}></footer>
-                    <div style={{height: 400, width: "100%"}}>
-                    <DataGrid pageSize={20} rows={rows} columns={columns}></DataGrid>
-                    </div>
-                </CardContent>
-                <footer className={classes.cardFooter}></footer>
-
-            </Card>
-        </Grid>
+        
         
         </Grid>
         
